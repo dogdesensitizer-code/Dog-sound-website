@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dog Sensitivity App</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="description" content="Simple dog desensitization trainer: play common sounds with adjustable settings." />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Dog Sensitivity App</h1>
+    <p class="subtitle">Gentle sound training for your pup</p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>1) Choose a Mode</h2>
+      <div class="modes">
+        <button class="mode-btn" data-mode="beginner">Beginner</button>
+        <button class="mode-btn" data-mode="gentle">Gentle</button>
+        <button class="mode-btn" data-mode="moderate">Moderate</button>
+      </div>
+      <p class="hint">Modes set default volume, fades, and random delays.</p>
+    </section>
+
+    <section class="card">
+      <h2>2) Pick a Sound</h2>
+      <ul class="sound-list" id="soundList">
+        <li><label><input type="radio" name="sound" value="fireworks_distant.mp3" checked> Fireworks — distant</label></li>
+        <li><label><input type="radio" name="sound" value="thunder_rumble.mp3"> Thunder — rumble</label></li>
+        <li><label><input type="radio" name="sound" value="crowd_murmur.mp3"> Crowd — murmur</label></li>
+      </ul>
+      <p class="hint">Add your own files in <code>sounds/</code> and update this list.</p>
+    </section>
+
+    <section class="card">
+      <h2>3) Adjust Settings (optional)</h2>
+      <div class="grid">
+        <label>Volume
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.25">
+        </label>
+        <label>Fade In (ms)
+          <input type="number" id="fadeInMs" min="0" max="5000" step="50" value="800">
+        </label>
+        <label>Fade Out (ms)
+          <input type="number" id="fadeOutMs" min="0" max="5000" step="50" value="600">
+        </label>
+        <label>Delay Between Plays (sec, random in range)
+          <div class="row">
+            <input type="number" id="delayMinSec" min="1" max="120" step="1" value="30">
+            <span class="spacer">to</span>
+            <input type="number" id="delayMaxSec" min="1" max="180" step="1" value="60">
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4) Controls</h2>
+      <div class="controls">
+        <button id="playBtn">Play</button>
+        <button id="stopBtn" class="secondary">Stop</button>
+      </div>
+      <p id="status" class="status">Idle</p>
+    </section>
+
+    <section class="card small">
+      <h3>Notes</h3>
+      <ul class="notes">
+        <li>Start very quietly. Reward calm behavior.</li>
+        <li>Keep sessions short; end on a positive note.</li>
+        <li>Increase difficulty slowly over days.</li>
+      </ul>
+    </section>
+
+    <section class="card small">
+      <h3>Monetization Placeholder</h3>
+      <p>Replace with your AdSense snippet when approved.</p>
+      <iframe src="ads-placeholder.html" title="Ads placeholder" class="ads-frame"></iframe>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>© <span id="year"></span> Dog Sensitivity App — MVP Starter</small>
+  </footer>
+
+  <script src="analytics-placeholder.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
