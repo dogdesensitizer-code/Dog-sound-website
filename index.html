@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dog Sensitivity App</title>
+  <title>Calm Dog Thunder - Gentle Storm Desensitization</title>
   <link rel="stylesheet" href="styles.css" />
-  <meta name="description" content="Simple dog desensitization trainer: play common sounds with adjustable settings." />
+  <meta name="description" content="Calm Dog Thunder – gentle thunderstorm sound training for dogs with storm anxiety." />
 </head>
 <body>
   <header class="topbar">
-    <h1>Dog Sensitivity App</h1>
-    <p class="subtitle">Gentle sound training for your pup</p>
+    <h1>Calm Dog Thunder</h1>
+    <p class="subtitle">Gentle thunderstorm sound training for your dog</p>
   </header>
 
   <main class="container">
@@ -25,13 +25,16 @@
     </section>
 
     <section class="card">
-      <h2>2) Pick a Sound</h2>
+      <h2>2) Choose Thunderstorm Sound</h2>
       <ul class="sound-list" id="soundList">
-        <li><label><input type="radio" name="sound" value="fireworks_distant.mp3" checked> Fireworks — distant</label></li>
-        <li><label><input type="radio" name="sound" value="thunder_rumble.mp3"> Thunder — rumble</label></li>
-        <li><label><input type="radio" name="sound" value="crowd_murmur.mp3"> Crowd — murmur</label></li>
+        <li><label><input type="radio" name="sound" value="thunder_distant.mp3" checked> Distant Thunder</label></li>
+        <li><label><input type="radio" name="sound" value="thunder_rolling.mp3"> Rolling Thunder</label></li>
+        <li><label><input type="radio" name="sound" value="thunder_crack.mp3"> Sharp Thunder Crack</label></li>
+        <li><label><input type="radio" name="sound" value="rain_thunder_mix.mp3"> Light Rain + Thunder</label></li>
+        <li><label><input type="radio" name="sound" value="storm_heavy.mp3"> Heavy Storm Ambience</label></li>
+        <li><label><input type="radio" name="sound" value="storm_intermittent.mp3"> Intermittent Thunderstorm</label></li>
       </ul>
-      <p class="hint">Add your own files in <code>sounds/</code> and update this list.</p>
+      <p class="hint">Place your audio files in <code>/sounds</code> using the exact filenames above.</p>
     </section>
 
     <section class="card">
@@ -73,19 +76,17 @@
         <li>Increase difficulty slowly over days.</li>
       </ul>
     </section>
-
-    <section class="card small">
-      <h3>Monetization Placeholder</h3>
-      <p>Replace with your AdSense snippet when approved.</p>
-      <iframe src="ads-placeholder.html" title="Ads placeholder" class="ads-frame"></iframe>
-    </section>
   </main>
 
   <footer class="footer">
-    <small>© <span id="year"></span> Dog Sensitivity App — MVP Starter</small>
+    <small>© <span id="year"></span> Calm Dog Thunder</small>
+    <br><a href="privacy.html">Privacy</a>
   </footer>
 
   <script src="analytics-placeholder.js"></script>
   <script src="app.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>
