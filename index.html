@@ -3,92 +3,71 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Calm Dog Thunder - Gentle Storm Desensitization</title>
+  <title>Calm Dog Thunder – Gentle Storm Desensitization</title>
+  <meta name="description" content="Thunderstorm-only, gentle desensitization for dogs with storm anxiety." />
   <link rel="stylesheet" href="styles.css" />
-  <meta name="description" content="Calm Dog Thunder – gentle thunderstorm sound training for dogs with storm anxiety." />
-  <script async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7387212774024420"
-          crossorigin="anonymous"></script>
 </head>
 <body>
   <header class="topbar">
     <h1>Calm Dog Thunder</h1>
     <p class="subtitle">Gentle thunderstorm sound training for your dog</p>
   </header>
-  <main class="container">
-    <section class="card">
-      <h2>1) Choose a Mode</h2>
-      <div class="modes">
-        <button class="mode-btn" data-mode="beginner">Beginner</button>
-        <button class="mode-btn" data-mode="gentle">Gentle</button>
-        <button class="mode-btn" data-mode="moderate">Moderate</button>
+
+  <main class="card">
+    <section aria-labelledby="controlsTitle">
+      <h2 id="controlsTitle" class="sr-only">Session Controls</h2>
+
+      <div class="row">
+        <button id="startBtn" class="primary">Start Session</button>
+        <button id="pauseBtn" class="secondary" disabled>Pause</button>
+        <button id="stopBtn" class="secondary" disabled>Stop</button>
       </div>
-      <p class="hint">Modes set default volume, fades, and random delays.</p>
-    </section>
 
-    <section class="card">
-      <h2>2) Choose Thunderstorm Sound</h2>
-      <ul class="sound-list" id="soundList">
-        <li><label><input type="radio" name="sound" value="thunder_distant.mp3" checked> Distant Thunder</label></li>
-        <li><label><input type="radio" name="sound" value="thunder_rolling.mp3"> Rolling Thunder</label></li>
-        <li><label><input type="radio" name="sound" value="thunder_crack.mp3"> Sharp Thunder Crack</label></li>
-        <li><label><input type="radio" name="sound" value="rain_thunder_mix.mp3"> Light Rain + Thunder</label></li>
-        <li><label><input type="radio" name="sound" value="storm_heavy.mp3"> Heavy Storm Ambience</label></li>
-        <li><label><input type="radio" name="sound" value="storm_intermittent.mp3"> Intermittent Thunderstorm</label></li>
-      </ul>
-      <p class="hint">Place your audio files in <code>/sounds</code> using the exact filenames above.</p>
-    </section>
+      <div class="row">
+        <label for="intensity"><span>Intensity</span>
+          <input id="intensity" type="range" min="1" max="5" step="1" value="2" />
+        </label>
+        <output id="intensityOut" aria-live="polite">2 / 5</output>
+      </div>
 
-    <section class="card">
-      <h2>3) Adjust Settings (optional)</h2>
-      <div class="grid">
-        <label>Volume
-          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.25">
+      <div class="row">
+        <label for="masterVol"><span>Master volume</span>
+          <input id="masterVol" type="range" min="0" max="1" step="0.01" value="0.25" />
         </label>
-        <label>Fade In (ms)
-          <input type="number" id="fadeInMs" min="0" max="5000" step="50" value="800">
-        </label>
-        <label>Fade Out (ms)
-          <input type="number" id="fadeOutMs" min="0" max="5000" step="50" value="600">
-        </label>
-        <label>Delay Between Plays (sec, random in range)
-          <div class="row">
-            <input type="number" id="delayMinSec" min="1" max="120" step="1" value="30">
-            <span class="spacer">to</span>
-            <input type="number" id="delayMaxSec" min="1" max="180" step="1" value="60">
-          </div>
+        <output id="masterVolOut" aria-live="polite">25%</output>
+      </div>
+
+      <div class="row small">
+        <label class="checkbox">
+          <input type="checkbox" id="lowFreqSoft" checked />
+          Soften low rumble (better for sensitive dogs)
         </label>
       </div>
-    </section>
 
-    <section class="card">
-      <h2>4) Controls</h2>
-      <div class="controls">
-        <button id="playBtn">Play</button>
-        <button id="stopBtn" class="secondary">Stop</button>
+      <div class="row">
+        <label for="sessionMins"><span>Session length</span>
+          <select id="sessionMins">
+            <option value="5">5 min</option>
+            <option value="10" selected>10 min</option>
+            <option value="15">15 min</option>
+            <option value="30">30 min</option>
+          </select>
+        </label>
+        <div id="timer" aria-live="polite">00:00 / 10:00</div>
       </div>
-      <p id="status" class="status">Idle</p>
-    </section>
 
-    <section class="card small">
-      <h3>Notes</h3>
-      <ul class="notes">
-        <li>Start very quietly. Reward calm behavior.</li>
-        <li>Keep sessions short; end on a positive note.</li>
-        <li>Increase difficulty slowly over days.</li>
-      </ul>
+      <div class="progress">
+        <div id="progressBar" class="progress-bar" style="width:0%"></div>
+      </div>
+
+      <p class="hint">Start low. Keep sessions short. If your dog shows stress, pause, lower volume, or stop.</p>
     </section>
   </main>
 
   <footer class="footer">
-    <small>© <span id="year"></span> Calm Dog Thunder</small>
-    <br><a href="privacy.html">Privacy</a>
+    <small>Not a medical device. Consult your vet for guidance.</small>
   </footer>
 
-  <script src="analytics-placeholder.js"></script>
-  <script src="app.js"></script>
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+  <script src="app.js" defer></script>
 </body>
 </html>
