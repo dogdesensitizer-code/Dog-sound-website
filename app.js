@@ -1,156 +1,237 @@
-// Minimal audio engine with fade in/out and randomized intervals
-// Uses HTMLAudioElement for simplicity (works locally).
+// Calm Dog Thunder – thunderstorm-only engine (paths fixed for ./sounds)
+let ctx, masterGain, softShelf, compressor, panner, rainNode;
+let rainBuffer;
+let thunderBuffers = [];
+let session = { running:false, startedAt:0, durationSec:600, timerId:null, thunderTimer:null };
+const $ = sel => document.querySelector(sel);
 
-const presets = {
-  beginner:  { volume: 0.25, fadeInMs: 800,  fadeOutMs: 600,  delayMinSec: 30, delayMaxSec: 60 },
-  gentle:    { volume: 0.35, fadeInMs: 600,  fadeOutMs: 500,  delayMinSec: 20, delayMaxSec: 40 },
-  moderate:  { volume: 0.50, fadeInMs: 400,  fadeOutMs: 400,  delayMinSec: 12, delayMaxSec: 24 },
-};
+// DOM elements
+const startBtn = $('#startBtn');
+const pauseBtn = $('#pauseBtn');
+const stopBtn  = $('#stopBtn');
+const intensity = $('#intensity');
+const intensityOut = $('#intensityOut');
+const masterVol = $('#masterVol');
+const masterVolOut = $('#masterVolOut');
+const lowFreqSoft = $('#lowFreqSoft');
+const sessionMins = $('#sessionMins');
+const timer = $('#timer');
+const progressBar = $('#progressBar');
 
-const els = {
-  volume: document.getElementById('volume'),
-  fadeInMs: document.getElementById('fadeInMs'),
-  fadeOutMs: document.getElementById('fadeOutMs'),
-  delayMinSec: document.getElementById('delayMinSec'),
-  delayMaxSec: document.getElementById('delayMaxSec'),
-  playBtn: document.getElementById('playBtn'),
-  stopBtn: document.getElementById('stopBtn'),
-  status: document.getElementById('status'),
-  year: document.getElementById('year'),
-};
-
-document.getElementById('year').textContent = new Date().getFullYear();
-
-let isPlaying = false;
-let currentAudio = null;
-let nextTimer = null;
-
-function logStatus(message) {
-  els.status.textContent = message;
-  console.log(message);
+function loadPersisted(){
+  const s = JSON.parse(localStorage.getItem('cdt_settings')||'{}');
+  if(s.intensity) intensity.value = s.intensity;
+  if(s.masterVol) masterVol.value = s.masterVol;
+  if(typeof s.lowFreqSoft === 'boolean') lowFreqSoft.checked = s.lowFreqSoft;
+  updateReadouts();
+}
+function persist(){
+  localStorage.setItem('cdt_settings', JSON.stringify({
+    intensity: intensity.value,
+    masterVol: masterVol.value,
+    lowFreqSoft: lowFreqSoft.checked
+  }));
+}
+function updateReadouts(){
+  intensityOut.textContent = `${intensity.value} / 5`;
+  masterVolOut.textContent = `${Math.round(masterVol.value * 100)}%`;
 }
 
-function randRange(min, max) {
-  return Math.random() * (max - min) + min;
+async function ensureAudio(){
+  if(ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive", sampleRate: 48000 });
+
+  // Main chain
+  masterGain = ctx.createGain();
+  masterGain.gain.value = parseFloat(masterVol.value);
+
+  compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -18;
+  compressor.knee.value = 12;
+  compressor.ratio.value = 3;
+  compressor.attack.value = 0.005;
+  compressor.release.value = 0.25;
+
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = 80;
+  highpass.Q.value = 0.707;
+
+  softShelf = ctx.createBiquadFilter();
+  softShelf.type = 'lowshelf';
+  softShelf.frequency.value = 200;
+  softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
+
+  panner = ctx.createStereoPanner();
+  panner.pan.value = 0;
+
+  masterGain.connect(softShelf).connect(highpass).connect(compressor).connect(ctx.destination);
+
+  // Load buffers from ./sounds folder
+  [rainBuffer, ...thunderBuffers] = await Promise.all([
+    fetchDecodeBuffer(['./sounds/rain_bed_v2.ogg','./sounds/rain_bed_v2.mp3']),
+    fetchDecodeBuffer('./sounds/thunder_distant_01.mp3'),
+    fetchDecodeBuffer('./sounds/thunder_distant_02.mp3'),
+    fetchDecodeBuffer('./sounds/thunder_close_01.mp3'),
+    fetchDecodeBuffer('./sounds/thunder_close_02.mp3')
+  ]);
 }
 
-function applyMode(mode) {
-  const p = presets[mode];
-  if (!p) return;
-  els.volume.value = p.volume;
-  els.fadeInMs.value = p.fadeInMs;
-  els.fadeOutMs.value = p.fadeOutMs;
-  els.delayMinSec.value = p.delayMinSec;
-  els.delayMaxSec.value = p.delayMaxSec;
-  logStatus(`Mode set: ${mode}`);
-}
-
-for (const btn of document.querySelectorAll('.mode-btn')) {
-  btn.addEventListener('click', () => applyMode(btn.dataset.mode));
-}
-
-function getSelectedSoundPath() {
-  const checked = document.querySelector('input[name="sound"]:checked');
-  if (!checked) return null;
-  return `sounds/${checked.value}`;
-}
-
-async function fadeVolume(audio, from, to, durationMs) {
-  return new Promise((resolve) => {
-    const steps = Math.max(1, Math.floor(durationMs / 16));
-    let i = 0;
-    const start = performance.now();
-    audio.volume = from;
-    const tick = () => {
-      const t = Math.min(1, (performance.now() - start) / durationMs);
-      audio.volume = from + (to - from) * t;
-      if (++i >= steps || t >= 1) return resolve();
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
-}
-
-async function playOnce() {
-  const path = getSelectedSoundPath();
-  if (!path) {
-    logStatus('No sound selected.');
-    return;
+async function fetchDecodeBuffer(urls) {
+  const list = Array.isArray(urls) ? urls : [urls];
+  let lastErr;
+  for (const u of list) {
+    try {
+      const res = await fetch(u, { cache:'force-cache' });
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status} ${u}`); continue; }
+      const arr = await res.arrayBuffer();
+      const buf = await (ctx || new AudioContext()).decodeAudioData(arr);
+      return buf;
+    } catch (e) { lastErr = e; }
   }
+  throw lastErr || new Error('Failed to load: ' + list.join(', '));
+}
 
-  // Stop any previous
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
+function createLoopNode(buffer){
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  src.connect(gain).connect(panner).connect(masterGain);
+  src.start();
+  rampTo(gain.gain, 0.35, 2.0);
+  return { src, gain };
+}
 
-  const volume = parseFloat(els.volume.value || '0.25');
-  const fadeInMs = parseInt(els.fadeInMs.value || '400', 10);
-  const fadeOutMs = parseInt(els.fadeOutMs.value || '400', 10);
+function rampTo(param, target, seconds){
+  const t = ctx.currentTime;
+  param.cancelScheduledValues(t);
+  param.setValueAtTime(param.value, t);
+  param.linearRampToValueAtTime(target, t + seconds);
+}
 
-  const audio = new Audio(path);
-  audio.loop = false;
-  audio.volume = 0.0001; // start silent
-  currentAudio = audio;
+function scheduleThunder(){
+  clearTimeout(session.thunderTimer);
+  if(!session.running) return;
 
-  audio.addEventListener('error', () => {
-    logStatus('Could not load audio. Make sure your file exists in /sounds.');
-  });
-
-  // Some browsers need a user gesture; clicking Play button counts
-  try {
-    await audio.play();
-    await fadeVolume(audio, 0.0001, volume, fadeInMs);
-    logStatus('Playing…');
-  } catch (e) {
-    logStatus('Click anywhere on the page, then press Play again.');
-    return;
-  }
-
-  audio.addEventListener('ended', async () => {
-    // If ended naturally, we’re done here
-  });
-
-  // Schedule fade-out near the end (approximate with 85% of duration if available)
-  const tryFadeOut = () => {
-    // If metadata available, schedule a timeout before end. Otherwise, do nothing.
-    if (!isFinite(audio.duration) || audio.duration <= 0) return;
-    const msBeforeEnd = Math.max(0, (audio.duration * 1000) - fadeOutMs - 100);
-    setTimeout(async () => {
-      await fadeVolume(audio, audio.volume, 0.0001, fadeOutMs);
-      audio.pause();
-      audio.currentTime = 0;
-      logStatus('Finished.');
-    }, msBeforeEnd);
+  const level = parseInt(intensity.value,10);
+  const table = {
+    1: { min:12, max:22, closeChance:0.05, gain:0.22 },
+    2: { min:9,  max:16, closeChance:0.12, gain:0.28 },
+    3: { min:7,  max:12, closeChance:0.18, gain:0.34 },
+    4: { min:5,  max:10, closeChance:0.25, gain:0.38 },
+    5: { min:4,  max:8,  closeChance:0.32, gain:0.42 }
   };
+  const cfg = table[level];
+  const isClose = Math.random() < cfg.closeChance;
+  const pool = thunderBuffers.slice(isClose ? 3 : 1, isClose ? thunderBuffers.length : 3);
+  const buf = pool[Math.floor(Math.random()*pool.length)];
+  const panVal = (Math.random()*1.2 - 0.6) * (isClose ? 1 : 0.6);
 
-  // If we have metadata now, schedule fade; else wait for it
-  if (isFinite(audio.duration) && audio.duration > 0) tryFadeOut();
-  else audio.addEventListener('loadedmetadata', tryFadeOut);
+  playOneShot(buf, { gain: cfg.gain * (isClose ? 1.05 : 0.9), pan: panVal });
+
+  const nextIn = rand(cfg.min, cfg.max) * 1000;
+  session.thunderTimer = setTimeout(scheduleThunder, nextIn);
 }
 
-function scheduleNext() {
-  const min = parseInt(els.delayMinSec.value || '10', 10);
-  const max = parseInt(els.delayMaxSec.value || '20', 10);
-  const delayMs = Math.round(randRange(min, max) * 1000);
-  logStatus(`Waiting ~${Math.round(delayMs / 1000)}s before next play…`);
-  nextTimer = setTimeout(async () => {
-    if (!isPlaying) return;
-    await playOnce();
-    scheduleNext();
-  }, delayMs);
+function playOneShot(buffer, { gain=0.3, pan=0 }={}){
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const g = ctx.createGain();
+  const p = ctx.createStereoPanner();
+  p.pan.value = pan;
+  g.gain.value = 0.0001;
+  src.connect(g).connect(p).connect(masterGain);
+
+  const now = ctx.currentTime;
+  const dur = buffer.duration;
+  const target = Math.min(gain, 0.6);
+  g.gain.setValueAtTime(g.gain.value, now);
+  g.gain.linearRampToValueAtTime(target, now + 0.15);
+  g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.25));
+  g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0.01, dur - 0.05));
+  src.start(now);
+  src.stop(now + dur + 0.1);
 }
 
-els.playBtn.addEventListener('click', async () => {
-  if (isPlaying) return;
-  isPlaying = true;
-  await playOnce();
-  scheduleNext();
+function rand(min, max){ return Math.random() * (max - min) + min; }
+
+function startSession(){
+  session.durationSec = parseInt(sessionMins.value,10) * 60;
+  session.startedAt = performance.now();
+  session.running = true;
+  startBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
+  ctx.resume();
+  if(!rainNode){
+    rainNode = createLoopNode(rainBuffer);
+  } else {
+    rampTo(rainNode.gain.gain, 0.35, 1.0);
+  }
+  softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
+  masterGain.gain.value = parseFloat(masterVol.value);
+  scheduleThunder();
+  clearInterval(session.timerId);
+  session.timerId = setInterval(tick, 200);
+}
+
+function pauseSession(){
+  if(!session.running) return;
+  session.running = false;
+  pauseBtn.disabled = true; startBtn.disabled = false;
+  clearTimeout(session.thunderTimer);
+  if(rainNode) rampTo(rainNode.gain.gain, 0.08, 0.6);
+}
+
+function stopSession(){
+  session.running = false;
+  startBtn.disabled = false; pauseBtn.disabled = true; stopBtn.disabled = true;
+  clearTimeout(session.thunderTimer);
+  clearInterval(session.timerId);
+  progressBar.style.width = '0%';
+  timer.textContent = `00:00 / ${minsToMMSS(session.durationSec/60)}`;
+  if(rainNode){
+    rampTo(rainNode.gain.gain, 0.0001, 0.8);
+    setTimeout(()=>{ try{ rainNode.src.stop(); }catch{} rainNode=null; }, 900);
+  }
+}
+
+function tick(){
+  const elapsed = Math.min((performance.now() - session.startedAt)/1000, session.durationSec);
+  const remain = session.durationSec - elapsed;
+  const pct = (elapsed / session.durationSec) * 100;
+  progressBar.style.width = `${pct}%`;
+  timer.textContent = `${toMMSS(elapsed)} / ${minsToMMSS(session.durationSec/60)}`;
+  if(remain <= 0){
+    stopSession();
+  }
+}
+
+function toMMSS(sec){
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec/60);
+  const s = Math.floor(sec%60);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function minsToMMSS(min){ return `${String(min).padStart(2,'0')}:00`; }
+
+// Event bindings
+window.addEventListener('load', loadPersisted);
+intensity.addEventListener('input', ()=>{ updateReadouts(); persist(); });
+masterVol.addEventListener('input', ()=>{ updateReadouts(); if(masterGain) masterGain.gain.value = parseFloat(masterVol.value); persist(); });
+lowFreqSoft.addEventListener('change', ()=>{ if(softShelf) softShelf.gain.value = lowFreqSoft.checked ? -3 : 0; persist(); });
+sessionMins.addEventListener('change', ()=>{ timer.textContent = `00:00 / ${minsToMMSS(sessionMins.value)}`; });
+
+startBtn.addEventListener('click', async ()=>{
+  await ensureAudio();
+  pauseBtn.disabled = false; stopBtn.disabled = false;
+  startSession();
 });
+pauseBtn.addEventListener('click', ()=>{ pauseSession(); });
+stopBtn.addEventListener('click', ()=>{ stopSession(); });
 
-els.stopBtn.addEventListener('click', () => {
-  isPlaying = false;
-  if (nextTimer) { clearTimeout(nextTimer); nextTimer = null; }
-  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  logStatus('Stopped.');
+document.addEventListener('keydown', e=>{
+  if((e.key === ' ' || e.key === 'Enter') && document.activeElement === startBtn && !startBtn.disabled){
+    e.preventDefault(); startBtn.click();
+  }
 });
