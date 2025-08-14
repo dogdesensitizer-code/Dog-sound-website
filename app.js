@@ -4,6 +4,7 @@ let rainBuffer;
 let thunderBuffers = [];
 let session = { running:false, startedAt:0, durationSec:600, timerId:null, thunderTimer:null };
 const $ = sel => document.querySelector(sel);
+manualCounterRow.style.display = (playMode === 'manual') ? 'flex' : 'none';
 
 // DOM elements
 const startBtn = $('#startBtn');
@@ -17,6 +18,50 @@ const lowFreqSoft = $('#lowFreqSoft');
 const sessionMins = $('#sessionMins');
 const timer = $('#timer');
 const progressBar = $('#progressBar');
+const modeRandom = document.getElementById('modeRandom');
+const modeManual = document.getElementById('modeManual');
+const manualRow  = document.getElementById('manualRow');
+let manualThunderCount = 0;
+
+const btnDistant = document.getElementById('btnDistant');
+const btnClose   = document.getElementById('btnClose');
+
+let playMode = 'random'; // 'random' | 'manual'
+
+function setMode(mode){
+  playMode = mode;
+  manualRow.style.display = (playMode === 'manual') ? 'flex' : 'none';
+  // In manual mode, intensity is not used; you can disable slider if you want:
+  // intensity.disabled = (playMode === 'manual');
+  persist();
+}
+
+modeRandom?.addEventListener('change', ()=>{ if(modeRandom.checked) setMode('random'); });
+modeManual?.addEventListener('change', ()=>{ if(modeManual.checked) setMode('manual'); });
+
+// load persisted mode (extend your loadPersisted)
+function loadPersisted(){
+  const s = JSON.parse(localStorage.getItem('cdt_settings')||'{}');
+  if(s.intensity) intensity.value = s.intensity;
+  if(s.masterVol) masterVol.value = s.masterVol;
+  if(typeof s.lowFreqSoft === 'boolean') lowFreqSoft.checked = s.lowFreqSoft;
+  if(s.playMode) {
+    if(s.playMode === 'manual') { modeManual.checked = true; setMode('manual'); }
+    else { modeRandom.checked = true; setMode('random'); }
+  } else {
+    setMode('random');
+  }
+  updateReadouts();
+}
+
+function persist(){
+  localStorage.setItem('cdt_settings', JSON.stringify({
+    intensity: intensity.value,
+    masterVol: masterVol.value,
+    lowFreqSoft: lowFreqSoft.checked,
+    playMode
+  }));
+}
 
 function loadPersisted(){
   const s = JSON.parse(localStorage.getItem('cdt_settings')||'{}');
@@ -161,19 +206,32 @@ function startSession(){
   session.durationSec = parseInt(sessionMins.value,10) * 60;
   session.startedAt = performance.now();
   session.running = true;
+
   startBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
   ctx.resume();
+
   if(!rainNode){
     rainNode = createLoopNode(rainBuffer);
   } else {
     rampTo(rainNode.gain.gain, 0.35, 1.0);
   }
+
   softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
   masterGain.gain.value = parseFloat(masterVol.value);
-  scheduleThunder();
+
+  clearTimeout(session.thunderTimer);
+  if (playMode === 'random') {
+    scheduleThunder();   // ← only in random mode
+  }
+
   clearInterval(session.timerId);
   session.timerId = setInterval(tick, 200);
+
+  manualThunderCount = 0;
+  manualCounterLabel.textContent = `Manual Thunder: 0`;
+
 }
+
 
 function pauseSession(){
   if(!session.running) return;
@@ -229,6 +287,30 @@ startBtn.addEventListener('click', async ()=>{
 });
 pauseBtn.addEventListener('click', ()=>{ pauseSession(); });
 stopBtn.addEventListener('click', ()=>{ stopSession(); });
+btnDistant?.addEventListener('click', ()=>{
+  if(!ctx || !thunderBuffers.length) return;
+  const pool = thunderBuffers.slice(1, 3); // distant sounds
+  const buf = pool[Math.floor(Math.random()*pool.length)];
+  const levelMap = [0,0.24,0.28,0.32,0.36,0.40];
+  const lvl = levelMap[parseInt(intensity.value,10)] || 0.28;
+  playOneShot(buf, { gain: Math.min(lvl, 0.45), pan: (Math.random()*0.8 - 0.4) });
+
+  manualThunderCount++;
+  manualCounterLabel.textContent = `Manual Thunder: ${manualThunderCount}`;
+});
+
+btnClose?.addEventListener('click', ()=>{
+  if(!ctx || !thunderBuffers.length) return;
+  const pool = thunderBuffers.slice(3); // close sounds
+  const buf = pool[Math.floor(Math.random()*pool.length)];
+  const levelMap = [0,0.30,0.34,0.38,0.42,0.46];
+  const lvl = levelMap[parseInt(intensity.value,10)] || 0.38;
+  playOneShot(buf, { gain: Math.min(lvl, 0.50), pan: (Math.random()*1.2 - 0.6) });
+
+  manualThunderCount++;
+  manualCounterLabel.textContent = `Manual Thunder: ${manualThunderCount}`;
+});
+
 
 document.addEventListener('keydown', e=>{
   if((e.key === ' ' || e.key === 'Enter') && document.activeElement === startBtn && !startBtn.disabled){

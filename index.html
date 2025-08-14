@@ -16,6 +16,23 @@
   <main class="card">
     <section aria-labelledby="controlsTitle">
       <h2 id="controlsTitle" class="sr-only">Session Controls</h2>
+    
+      <div class="row">
+        <label class="checkbox">
+         <input type="radio" name="mode" id="modeRandom" checked />
+          Random Storm
+        </label>
+        <label class="checkbox">
+          <input type="radio" name="mode" id="modeManual" />
+           Manual Thunder
+        </label>
+      </div>
+
+      <!-- Manual controls row (hidden unless Manual is selected) -->
+      <div class="row" id="manualRow" style="display:none">
+        <button class="secondary" id="btnDistant">Play distant</button>
+        <button class="secondary" id="btnClose">Play close</button>
+      </div>
 
       <div class="row">
         <button id="startBtn" class="primary">Start Session</button>
