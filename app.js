@@ -69,11 +69,11 @@ async function ensureAudio(){
 
   // Load buffers from ./sounds folder
   [rainBuffer, ...thunderBuffers] = await Promise.all([
-    fetchDecodeBuffer(['./sounds/rain_bed_v2.ogg','./sounds/rain_bed_v2.mp3']),
-    fetchDecodeBuffer('./sounds/thunder_distant_01.mp3'),
-    fetchDecodeBuffer('./sounds/thunder_distant_02.mp3'),
-    fetchDecodeBuffer('./sounds/thunder_close_01.mp3'),
-    fetchDecodeBuffer('./sounds/thunder_close_02.mp3')
+    fetchDecodeBuffer(['./sounds/rain_bed_v2.ogg?v=2','./sounds/rain_bed_v2.mp3?v=2']),
+    fetchDecodeBuffer('./sounds/thunder_distant_01.mp3?v=2'),
+    fetchDecodeBuffer('./sounds/thunder_distant_02.mp3?v=2'),
+    fetchDecodeBuffer('./sounds/thunder_close_01.mp3?v=2'),
+    fetchDecodeBuffer('./sounds/thunder_close_02.mp3?v=2')
   ]);
 }
 
