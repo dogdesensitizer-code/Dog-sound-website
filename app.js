@@ -28,6 +28,8 @@ let rainSrc;
 let timerInterval;
 let elapsed = 0;
 let sessionLength = 600; // seconds
+let rainEQ = null;
+
 
 async function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -38,7 +40,7 @@ async function initAudio() {
   rainGain = ctx.createGain();
   bgGain = ctx.createGain();
   thunderGain = ctx.createGain();
-
+  thunderGain.gain.value = 0.9; // louder than rain
   rainGain.connect(masterGain);
   bgGain.connect(masterGain);
   thunderGain.connect(masterGain);
@@ -68,6 +70,10 @@ async function startRain(level) {
 }
 
 // ---- Manual thunder ----
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 async function playThunder(which) {
   const base = manifest.manualThunder[which];
   const buf = await fetchBuffer(fileURL(base));
@@ -79,6 +85,13 @@ async function playThunder(which) {
   document.getElementById("manualCounterLabel").textContent =
     "Manual Thunder: " + manualCount;
 }
+
+  // Optional auto-refresh every 4–7 minutes
+  if (window._rainSwapTimer) clearTimeout(window._rainSwapTimer);
+  const nextMs = 240000 + Math.random() * 180000;
+  window._rainSwapTimer = setTimeout(() => startRain(level), nextMs);
+}
+
 
 // ---- Background random thunder ----
 function startBgThunder() {
@@ -93,7 +106,7 @@ function startBgThunder() {
         src.connect(bgGain);
 
         // slightly louder so it's audible under rain
-        bgGain.gain.value = 0.25 + Math.random() * 0.1; // 0.25–0.35
+        bgGain.gain.value = 0.22 + Math.random() * 0.08; // 0.22–0.30
 
         src.start();
       } catch (err) {
@@ -127,6 +140,30 @@ function stopSession() {
   document.getElementById("pauseBtn").disabled = true;
   document.getElementById("stopBtn").disabled = true;
   document.getElementById("startBtn").disabled = false;
+}
+
+function applyLowFreqSoft(enabled) {
+  if (!ctx) return;
+  if (enabled) {
+    if (!rainEQ) {
+      rainEQ = ctx.createBiquadFilter();
+      rainEQ.type = "lowshelf";
+      rainEQ.frequency.value = 80;
+      rainEQ.gain.value = -8; // reduce rumble
+      rainGain.disconnect();
+      rainGain.connect(rainEQ);
+      rainEQ.connect(masterGain);
+    } else {
+      rainEQ.gain.value = -8;
+    }
+  } else {
+    if (rainEQ) {
+      rainGain.disconnect();
+      rainEQ.disconnect();
+      rainEQ = null;
+      rainGain.connect(masterGain);
+    }
+  }
 }
 
 // ---- UI wiring ----
@@ -184,4 +221,9 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("stopBtn").addEventListener("click", () => {
     stopSession();
   });
+
+  document.getElementById("lowFreqSoft").addEventListener("change", (e) => {
+  applyLowFreqSoft(e.target.checked);
+});
+
 });
