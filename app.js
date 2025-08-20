@@ -1,373 +1,180 @@
-// Calm Dog Thunder – full app.js (Random + Manual modes, counter, ./sounds paths)
+// pick Opus if possible, fallback to MP3
+function chooseExt() {
+  const a = document.createElement('audio');
+  return a.canPlayType('audio/ogg; codecs=opus') ? 'opus' : 'mp3';
+}
+const EXT = chooseExt();
 
-// --------- Config ----------
-const ASSET_VER = '3'; // bump to force browsers to fetch fresh audio (?v=3)
-
-// --------- State / Audio graph ----------
-let ctx, masterGain, softShelf, compressor, panner, rainNode;
-let rainBuffer;
-let thunderBuffers = []; // [rain, distant1, distant2, close1, close2]
-let playMode = 'random'; // 'random' | 'manual'
-let manualThunderCount = 0;
-
-const session = {
-  running: false,
-  startedAt: 0,
-  durationSec: 600,
-  timerId: null,
-  thunderTimer: null
+const manifest = {
+  rain: {
+    1: "QP03 0292 Rain quiet light tone",
+    2: "QP03 0295 Rain light consistent leaves",
+    3: "QP03 0300 Rain strong consistent",
+    4: "QP03 0302 Rain downpour fast",
+    5: "QP03 0302 Rain downpour fast" // reuse for max
+  },
+  bgThunder: [
+    "QP03 0283 Thunder distant slow long",
+    "QP03 0287 Thunder very distant"
+  ],
+  manualThunder: {
+    distant: "QP03 0280 Thunder moderately distant rolling",
+    close: "QP03 0270 Thunder close"
+  }
 };
 
-// --------- DOM helpers ----------
-const $ = (sel) => document.querySelector(sel);
+let ctx, masterGain, rainGain, bgGain, thunderGain;
+let rainSrc;
+let timerInterval;
+let elapsed = 0;
+let sessionLength = 600; // seconds
 
-// Controls
-const startBtn = $('#startBtn');
-const pauseBtn = $('#pauseBtn');
-const stopBtn  = $('#stopBtn');
+async function initAudio() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = ctx.createGain();
+  masterGain.gain.value = parseFloat(document.getElementById("masterVol").value);
+  masterGain.connect(ctx.destination);
 
-const intensity = $('#intensity');
-const intensityOut = $('#intensityOut');
+  rainGain = ctx.createGain();
+  bgGain = ctx.createGain();
+  thunderGain = ctx.createGain();
 
-const masterVol = $('#masterVol');
-const masterVolOut = $('#masterVolOut');
-
-const lowFreqSoft = $('#lowFreqSoft');
-const sessionMins = $('#sessionMins');
-const timer = $('#timer');
-const progressBar = $('#progressBar');
-
-// Modes + manual UI
-const modeRandom = $('#modeRandom');
-const modeManual = $('#modeManual');
-const manualRow  = $('#manualRow');
-
-const btnDistant = $('#btnDistant');
-const btnClose   = $('#btnClose');
-
-const manualCounterRow   = $('#manualCounterRow');
-const manualCounterLabel = $('#manualCounterLabel');
-
-// --------- Load / Persist ----------
-function updateReadouts(){
-  intensityOut.textContent = `${intensity.value} / 5`;
-  masterVolOut.textContent = `${Math.round(masterVol.value * 100)}%`;
+  rainGain.connect(masterGain);
+  bgGain.connect(masterGain);
+  thunderGain.connect(masterGain);
 }
 
-function persist(){
-  localStorage.setItem('cdt_settings', JSON.stringify({
-    intensity: intensity.value,
-    masterVol: masterVol.value,
-    lowFreqSoft: lowFreqSoft.checked,
-    playMode
-  }));
+function fileURL(base) {
+  return `/sounds/${encodeURIComponent(base)}.${EXT}`;
 }
 
-function setMode(mode){
-  playMode = mode;
-  const showManual = (playMode === 'manual');
-  if (manualRow) manualRow.style.display = showManual ? 'flex' : 'none';
-  if (manualCounterRow) manualCounterRow.style.display = showManual ? 'flex' : 'none';
-  persist();
+async function fetchBuffer(url) {
+  const res = await fetch(url);
+  const arr = await res.arrayBuffer();
+  return await ctx.decodeAudioData(arr);
 }
 
-function loadPersisted(){
-  const s = JSON.parse(localStorage.getItem('cdt_settings') || '{}');
-  if (s.intensity) intensity.value = s.intensity;
-  if (s.masterVol) masterVol.value = s.masterVol;
-  if (typeof s.lowFreqSoft === 'boolean') lowFreqSoft.checked = s.lowFreqSoft;
-
-  if (s.playMode === 'manual') {
-    modeManual && (modeManual.checked = true);
-    setMode('manual');
-  } else {
-    modeRandom && (modeRandom.checked = true);
-    setMode('random');
-  }
-  updateReadouts();
+// ---- Rain loop ----
+async function startRain(level) {
+  if (rainSrc) { try { rainSrc.stop(); } catch {} }
+  const base = manifest.rain[level];
+  const buf = await fetchBuffer(fileURL(base));
+  rainSrc = ctx.createBufferSource();
+  rainSrc.buffer = buf;
+  rainSrc.loop = true;
+  rainSrc.connect(rainGain);
+  rainGain.gain.value = 0.7;
+  rainSrc.start();
 }
 
-// --------- Audio loading ----------
-async function ensureAudio(){
-  if (ctx) return;
-  ctx = new (window.AudioContext || window.webkitAudioContext)({
-    latencyHint: 'interactive',
-    sampleRate: 48000
+// ---- Manual thunder ----
+async function playThunder(which) {
+  const base = manifest.manualThunder[which];
+  const buf = await fetchBuffer(fileURL(base));
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(thunderGain);
+  src.start();
+  manualCount++;
+  document.getElementById("manualCounterLabel").textContent =
+    "Manual Thunder: " + manualCount;
+}
+
+// ---- Background random thunder ----
+function startBgThunder() {
+  const schedule = async () => {
+    const delay = 30 + Math.random() * 60; // 30-90s
+    setTimeout(async () => {
+      const pick = manifest.bgThunder[Math.floor(Math.random() * manifest.bgThunder.length)];
+      const buf = await fetchBuffer(fileURL(pick));
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(bgGain);
+      bgGain.gain.value = 0.15;
+      src.start();
+      schedule();
+    }, delay * 1000);
+  };
+  schedule();
+}
+
+// ---- Session timer ----
+function startTimer() {
+  clearInterval(timerInterval);
+  elapsed = 0;
+  timerInterval = setInterval(() => {
+    elapsed++;
+    const min = Math.floor(elapsed / 60).toString().padStart(2, "0");
+    const sec = (elapsed % 60).toString().padStart(2, "0");
+    document.getElementById("timer").textContent =
+      `${min}:${sec} / ${sessionLength/60}:00`;
+    const pct = (elapsed / sessionLength) * 100;
+    document.getElementById("progressBar").style.width = pct + "%";
+    if (elapsed >= sessionLength) stopSession();
+  }, 1000);
+}
+
+function stopSession() {
+  clearInterval(timerInterval);
+  if (rainSrc) { try { rainSrc.stop(); } catch {} }
+  document.getElementById("pauseBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("startBtn").disabled = false;
+}
+
+// ---- UI wiring ----
+let manualCount = 0;
+
+window.addEventListener("DOMContentLoaded", () => {
+  initAudio();
+
+  // Mode switch
+  document.getElementById("modeRandom").addEventListener("change", e => {
+    document.getElementById("manualRow").style.display = "none";
+    document.getElementById("manualCounterRow").style.display = "none";
+  });
+  document.getElementById("modeManual").addEventListener("change", e => {
+    document.getElementById("manualRow").style.display = "";
+    document.getElementById("manualCounterRow").style.display = "";
   });
 
-  masterGain = ctx.createGain();
-  masterGain.gain.value = parseFloat(masterVol.value);
+  // Manual thunder
+  document.getElementById("btnDistant").addEventListener("click", () => playThunder("distant"));
+  document.getElementById("btnClose").addEventListener("click", () => playThunder("close"));
 
-  compressor = ctx.createDynamicsCompressor();
-  compressor.threshold.value = -18;
-  compressor.knee.value = 12;
-  compressor.ratio.value = 3;
-  compressor.attack.value = 0.005;
-  compressor.release.value = 0.25;
+  // Master volume
+  document.getElementById("masterVol").addEventListener("input", e => {
+    masterGain.gain.value = parseFloat(e.target.value);
+    document.getElementById("masterVolOut").textContent =
+      Math.round(parseFloat(e.target.value) * 100) + "%";
+  });
 
-  const highpass = ctx.createBiquadFilter();
-  highpass.type = 'highpass';
-  highpass.frequency.value = 80;
-  highpass.Q.value = 0.707;
+  // Intensity slider
+  document.getElementById("intensity").addEventListener("input", e => {
+    const val = parseInt(e.target.value);
+    document.getElementById("intensityOut").textContent = val + " / 5";
+  });
 
-  softShelf = ctx.createBiquadFilter();
-  softShelf.type = 'lowshelf';
-  softShelf.frequency.value = 200;
-  softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
-
-  panner = ctx.createStereoPanner();
-  panner.pan.value = 0;
-
-  masterGain
-    .connect(softShelf)
-    .connect(highpass)
-    .connect(compressor)
-    .connect(ctx.destination);
-
-  // Load audio buffers from ./sounds (with cache-busting)
-  const ogg = (f) => `./sounds/${f}.ogg?v=${ASSET_VER}`;
-  const mp3 = (f) => `./sounds/${f}.mp3?v=${ASSET_VER}`;
-
-  [rainBuffer, ...thunderBuffers] = await Promise.all([
-    fetchDecodeBuffer([ogg('rain_bed_v2'), mp3('rain_bed_v2')]),
-    fetchDecodeBuffer(mp3('thunder_distant_01')),
-    fetchDecodeBuffer(mp3('thunder_distant_02')),
-    fetchDecodeBuffer(mp3('thunder_close_01')),
-    fetchDecodeBuffer(mp3('thunder_close_02'))
-  ]);
-}
-
-async function fetchDecodeBuffer(urls){
-  const list = Array.isArray(urls) ? urls : [urls];
-  let lastErr;
-  for (const u of list) {
-    try {
-      const res = await fetch(u, { cache: 'force-cache' });
-      if (!res.ok) { lastErr = new Error(`HTTP ${res.status} ${u}`); continue; }
-      const arr = await res.arrayBuffer();
-      const buf = await (ctx || new AudioContext()).decodeAudioData(arr);
-      return buf;
-    } catch (e) {
-      lastErr = e;
+  // Start/Pause/Stop
+  document.getElementById("startBtn").addEventListener("click", async () => {
+    await ctx.resume();
+    sessionLength = parseInt(document.getElementById("sessionMins").value) * 60;
+    startRain(parseInt(document.getElementById("intensity").value));
+    if (document.getElementById("modeRandom").checked) {
+      startBgThunder();
     }
-  }
-  throw lastErr || new Error('Failed to load: ' + list.join(', '));
-}
+    startTimer();
+    manualCount = 0;
+    document.getElementById("pauseBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = false;
+    document.getElementById("startBtn").disabled = true;
+  });
 
-// --------- Audio helpers ----------
-function createLoopNode(buffer){
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.loop = true;
-
-  const gain = ctx.createGain();
-  gain.gain.value = 0;
-
-  src.connect(gain).connect(panner).connect(masterGain);
-  src.start();
-  rampTo(gain.gain, 0.35, 2.0);
-  return { src, gain };
-}
-
-function rampTo(param, target, seconds){
-  const t = ctx.currentTime;
-  param.cancelScheduledValues(t);
-  param.setValueAtTime(param.value, t);
-  param.linearRampToValueAtTime(target, t + seconds);
-}
-
-function playOneShot(buffer, { gain=0.3, pan=0 }={}){
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-
-  const g = ctx.createGain();
-  const p = ctx.createStereoPanner();
-  p.pan.value = pan;
-
-  g.gain.value = 0.0001;
-  src.connect(g).connect(p).connect(masterGain);
-
-  const now = ctx.currentTime;
-  const dur = buffer.duration;
-  const target = Math.min(gain, 0.6);
-
-  g.gain.setValueAtTime(g.gain.value, now);
-  g.gain.linearRampToValueAtTime(target, now + 0.15);
-  g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.25));
-  g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0.01, dur - 0.05));
-
-  src.start(now);
-  src.stop(now + dur + 0.1);
-}
-
-function rand(min, max){ return Math.random() * (max - min) + min; }
-
-// --------- Thunder scheduling (Random mode only) ----------
-function scheduleThunder(){
-  clearTimeout(session.thunderTimer);
-  if (!session.running || playMode !== 'random') return;
-
-  const level = parseInt(intensity.value, 10);
-  const table = {
-    1: { min:12, max:22, closeChance:0.05, gain:0.22 },
-    2: { min:9,  max:16, closeChance:0.12, gain:0.28 },
-    3: { min:7,  max:12, closeChance:0.18, gain:0.34 },
-    4: { min:5,  max:10, closeChance:0.25, gain:0.38 },
-    5: { min:4,  max:8,  closeChance:0.32, gain:0.42 }
-  };
-  const cfg = table[level] || table[2];
-
-  const isClose = Math.random() < cfg.closeChance;
-  const pool = thunderBuffers.slice(isClose ? 3 : 1, isClose ? thunderBuffers.length : 3);
-  const buf = pool[Math.floor(Math.random()*pool.length)];
-  const panVal = (Math.random()*1.2 - 0.6) * (isClose ? 1 : 0.6);
-
-  playOneShot(buf, { gain: cfg.gain * (isClose ? 1.05 : 0.9), pan: panVal });
-
-  const nextIn = rand(cfg.min, cfg.max) * 1000;
-  session.thunderTimer = setTimeout(scheduleThunder, nextIn);
-}
-
-// --------- Session control ----------
-function toMMSS(sec){
-  sec = Math.max(0, sec);
-  const m = Math.floor(sec/60);
-  const s = Math.floor(sec%60);
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-function minsToMMSS(min){ return `${String(min).padStart(2,'0')}:00`; }
-
-function tick(){
-  const elapsed = Math.min((performance.now() - session.startedAt)/1000, session.durationSec);
-  const remain = session.durationSec - elapsed;
-  const pct = (elapsed / session.durationSec) * 100;
-
-  progressBar.style.width = `${pct}%`;
-  timer.textContent = `${toMMSS(elapsed)} / ${minsToMMSS(session.durationSec/60)}`;
-
-  if (remain <= 0) {
+  document.getElementById("pauseBtn").addEventListener("click", () => {
+    ctx.suspend();
+    clearInterval(timerInterval);
+  });
+  document.getElementById("stopBtn").addEventListener("click", () => {
     stopSession();
-  }
-}
-
-function startSession(){
-  session.durationSec = parseInt(sessionMins.value, 10) * 60;
-  session.startedAt = performance.now();
-  session.running = true;
-
-  // reset manual counter
-  manualThunderCount = 0;
-  if (manualCounterLabel) manualCounterLabel.textContent = 'Manual Thunder: 0';
-
-  startBtn.disabled = true; pauseBtn.disabled = false; stopBtn.disabled = false;
-
-  ctx && ctx.resume();
-
-  if (!rainNode) {
-    rainNode = createLoopNode(rainBuffer);
-  } else {
-    rampTo(rainNode.gain.gain, 0.35, 1.0);
-  }
-
-  softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
-  masterGain.gain.value = parseFloat(masterVol.value);
-
-  clearTimeout(session.thunderTimer);
-  if (playMode === 'random') {
-    scheduleThunder();
-  }
-
-  clearInterval(session.timerId);
-  session.timerId = setInterval(tick, 200);
-}
-
-function pauseSession(){
-  if (!session.running) return;
-  session.running = false;
-  pauseBtn.disabled = true; startBtn.disabled = false;
-  clearTimeout(session.thunderTimer);
-  if (rainNode) rampTo(rainNode.gain.gain, 0.08, 0.6);
-}
-
-function stopSession(){
-  session.running = false;
-  startBtn.disabled = false; pauseBtn.disabled = true; stopBtn.disabled = true;
-
-  clearTimeout(session.thunderTimer);
-  clearInterval(session.timerId);
-
-  progressBar.style.width = '0%';
-  timer.textContent = `00:00 / ${minsToMMSS(session.durationSec/60)}`;
-
-  if (rainNode){
-    rampTo(rainNode.gain.gain, 0.0001, 0.8);
-    setTimeout(()=>{ try{ rainNode.src.stop(); }catch{} rainNode = null; }, 900);
-  }
-}
-
-// --------- Event wiring ----------
-window.addEventListener('load', loadPersisted);
-
-intensity.addEventListener('input', ()=>{ updateReadouts(); persist(); });
-masterVol.addEventListener('input', ()=>{
-  updateReadouts();
-  if (masterGain) masterGain.gain.value = parseFloat(masterVol.value);
-  persist();
-});
-lowFreqSoft.addEventListener('change', ()=>{
-  if (softShelf) softShelf.gain.value = lowFreqSoft.checked ? -3 : 0;
-  persist();
-});
-sessionMins.addEventListener('change', ()=>{
-  timer.textContent = `00:00 / ${minsToMMSS(sessionMins.value)}`;
-});
-
-modeRandom?.addEventListener('change', ()=>{ if (modeRandom.checked) setMode('random'); });
-modeManual?.addEventListener('change', ()=>{ if (modeManual.checked) setMode('manual'); });
-
-startBtn.addEventListener('click', async ()=>{
-  await ensureAudio();
-  pauseBtn.disabled = false; stopBtn.disabled = false;
-  startSession();
-});
-pauseBtn.addEventListener('click', ()=>{ pauseSession(); });
-stopBtn.addEventListener('click', ()=>{ stopSession(); });
-
-// Manual thunder buttons (auto-start session if needed)
-btnDistant?.addEventListener('click', async ()=>{
-  await ensureAudio();
-  if (!session.running) startSession();
-
-  const pool = thunderBuffers.slice(1, 3); // distant
-  const buf  = pool[Math.floor(Math.random()*pool.length)];
-  const levelMap = [0,0.24,0.28,0.32,0.36,0.40];
-  const lvl = levelMap[parseInt(intensity.value,10)] || 0.28;
-
-  playOneShot(buf, { gain: Math.min(lvl, 0.45), pan: (Math.random()*0.8 - 0.4) });
-
-  manualThunderCount++;
-  if (manualCounterLabel) manualCounterLabel.textContent = `Manual Thunder: ${manualThunderCount}`;
-});
-
-btnClose?.addEventListener('click', async ()=>{
-  await ensureAudio();
-  if (!session.running) startSession();
-
-  const pool = thunderBuffers.slice(3); // close
-  const buf  = pool[Math.floor(Math.random()*pool.length)];
-  const levelMap = [0,0.30,0.34,0.38,0.42,0.46];
-  const lvl = levelMap[parseInt(intensity.value,10)] || 0.38;
-
-  playOneShot(buf, { gain: Math.min(lvl, 0.50), pan: (Math.random()*1.2 - 0.6) });
-
-  manualThunderCount++;
-  if (manualCounterLabel) manualCounterLabel.textContent = `Manual Thunder: ${manualThunderCount}`;
-});
-
-// Keyboard helper: Space/Enter on Start
-document.addEventListener('keydown', (e)=>{
-  if ((e.key === ' ' || e.key === 'Enter') && document.activeElement === startBtn && !startBtn.disabled) {
-    e.preventDefault();
-    startBtn.click();
-  }
+  });
 });

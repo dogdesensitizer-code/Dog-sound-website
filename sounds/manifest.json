@@ -1,0 +1,18 @@
+{
+  "rain": {
+    "quiet": "QP03 0292 Rain quiet light tone",
+    "light": "QP03 0295 Rain light consistent leaves",
+    "strong": "QP03 0300 Rain strong consistent",
+    "downpour": "QP03 0302 Rain downpour fast"
+  },
+  "bgThunder": [
+    "QP03 0283 Thunder distant slow long",
+    "QP03 0287 Thunder very distant"
+  ],
+  "manualThunder": [
+    "QP03 0270 Thunder close",
+    "QP03 0273 Thunder single peel",
+    "QP03 0274 Thunder long peel",
+    "QP03 0280 Thunder moderately distant rolling"
+  ]
+}
