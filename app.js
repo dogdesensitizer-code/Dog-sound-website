@@ -63,7 +63,7 @@ async function startRain(level) {
   rainSrc.buffer = buf;
   rainSrc.loop = true;
   rainSrc.connect(rainGain);
-  rainGain.gain.value = 0.7;
+  rainGain.gain.value = 0.35;
   rainSrc.start();
 }
 
@@ -83,15 +83,22 @@ async function playThunder(which) {
 // ---- Background random thunder ----
 function startBgThunder() {
   const schedule = async () => {
-    const delay = 30 + Math.random() * 60; // 30-90s
+    const delay = 20 + Math.random() * 40; // 20–60s between rolls
     setTimeout(async () => {
       const pick = manifest.bgThunder[Math.floor(Math.random() * manifest.bgThunder.length)];
-      const buf = await fetchBuffer(fileURL(pick));
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(bgGain);
-      bgGain.gain.value = 0.15;
-      src.start();
+      try {
+        const buf = await fetchBuffer(fileURL(pick));
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(bgGain);
+
+        // slightly louder so it's audible under rain
+        bgGain.gain.value = 0.25 + Math.random() * 0.1; // 0.25–0.35
+
+        src.start();
+      } catch (err) {
+        console.error("bg thunder load error", err);
+      }
       schedule();
     }, delay * 1000);
   };
