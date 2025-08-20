@@ -1,10 +1,17 @@
+window.addEventListener('error', e => {
+  console.error('Global error:', e.message);
+});
+window.addEventListener('unhandledrejection', e => {
+  console.error('Unhandled promise:', e.reason);
+});
+
 // ===================== utilities & prefs =====================
 function chooseExt() {
   const a = document.createElement('audio');
   return a.canPlayType('audio/ogg; codecs=opus') ? 'opus' : 'mp3';
 }
 const EXT = chooseExt();
-const enc = (s) => `/sounds/${encodeURIComponent(s)}.${EXT}`;
+const enc = (s) => `sounds/${encodeURIComponent(s)}.${EXT}`;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // ===================== global state =====================
@@ -241,7 +248,7 @@ function stopSession() {
 window.addEventListener("DOMContentLoaded", async () => {
   // load manifest first so we know available files
   try {
-    manifest = await fetchJSON('/sounds/manifest.json');
+    manifest = await fetchJSON('sounds/manifest.json');
   } catch (e) {
     console.error("manifest.json load failed", e);
     alert("Couldn't load sounds/manifest.json – please add it.");
