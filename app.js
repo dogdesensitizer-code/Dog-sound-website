@@ -4,7 +4,7 @@ function chooseExt() {
   return a.canPlayType('audio/ogg; codecs=opus') ? 'opus' : 'mp3';
 }
 const EXT = chooseExt();
-const enc = (s) => `sounds/${encodeURIComponent(s)}.${EXT}`;
+const enc = (s, ext = EXT) => `sounds/${encodeURIComponent(s)}.${ext}`;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // ===================== global state =====================
@@ -12,8 +12,8 @@ let ctx, masterGain, rainGain, bgGain, thunderGain;
 let rainEQ = null;
 
 let rainSrc = null;
-let activeManual = []; // currently playing manual thunder sources
-let activeBg = [];     // currently playing background thunder sources
+let activeManual = []; // [{src, g}]
+let activeBg = [];     // [{src, g}]
 
 let bgTimer = null;
 let rainSwapTimer = null;
@@ -41,6 +41,16 @@ async function fetchBuffer(url) {
   return await ctx.decodeAudioData(arr);
 }
 
+// try preferred ext, then the other; return AudioBuffer or throw
+async function fetchBufferWithFallback(base) {
+  try {
+    return await fetchBuffer(enc(base, EXT));
+  } catch {
+    const alt = EXT === 'opus' ? 'mp3' : 'opus';
+    return await fetchBuffer(enc(base, alt));
+  }
+}
+
 // ===================== audio graph =====================
 async function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -54,7 +64,7 @@ async function initAudio() {
 
   masterGain.gain.value = parseFloat(document.getElementById("masterVol").value);
   rainGain.gain.value = 0.28;   // bed kept soft
-  bgGain.gain.value = 0.24;     // soft background rolls
+  bgGain.gain.value = 0.30;     // a hair louder so rolls are audible
   thunderGain.gain.value = 0.9; // punchy manual thunder
 
   rainGain.connect(masterGain);
@@ -93,10 +103,25 @@ async function startRain(level) {
   if (rainSrc) { try { rainSrc.stop(); } catch {} rainSrc = null; }
 
   const list = manifest.rain?.[level] || manifest.rain?.["2"] || [];
-  if (!list.length) return;
+  if (!list.length) {
+    console.warn("No rain list for level", level);
+    return;
+  }
 
+  // pick one and load with fallback
   const base = pick(list);
-  const buf = await fetchBuffer(enc(base));
+  let buf;
+  try {
+    buf = await fetchBufferWithFallback(base);
+  } catch (e) {
+    console.warn("[rain] failed to load", base, e);
+    // try others in the list
+    const candidates = list.filter(b => b !== base);
+    for (const alt of candidates) {
+      try { buf = await fetchBufferWithFallback(alt); break; } catch {}
+    }
+    if (!buf) { console.warn("[rain] nothing playable for level", level); return; }
+  }
 
   const src = ctx.createBufferSource();
   src.buffer = buf;
@@ -112,13 +137,19 @@ async function startRain(level) {
   }, nextMs);
 }
 
-// ===================== manual thunder (no ducking) =====================
+// ===================== manual thunder (NO ducking) =====================
 async function playThunder(which) {
   const group = manifest.manualThunder?.[which] || [];
   if (!group.length) return;
 
   const base = pick(group);
-  const buf = await fetchBuffer(enc(base));
+  let buf;
+  try {
+    buf = await fetchBufferWithFallback(base);
+  } catch (e) {
+    console.warn("[manual] missing", base, e);
+    return;
+  }
 
   const src = ctx.createBufferSource();
   src.buffer = buf;
@@ -133,7 +164,7 @@ async function playThunder(which) {
   g.gain.linearRampToValueAtTime(1.0, now + 0.02);
   src.start(now);
 
-  // fade tail to avoid clicks
+  // soft tail to avoid clicks
   const dur = buf.duration;
   g.gain.setValueAtTime(1.0, now + Math.max(0, dur - 0.08));
   g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.02));
@@ -151,83 +182,74 @@ async function playThunder(which) {
     "Manual Thunder: " + manualCount;
 }
 
-// ===================== background thunder =====================
+// ===================== background thunder (early kick + logs) =====================
 function startBgThunder() {
-  stopBgThunder(); // make sure only one scheduler
+  stopBgThunder(); // ensure single scheduler
 
   const schedule = (initial = false) => {
-    // first roll happens sooner (3–8s), then 20–60s
+    // first roll in 3–8s, then 20–60s
     const delay = initial ? (3 + Math.random() * 5) : (20 + Math.random() * 40);
 
     bgTimer = setTimeout(async () => {
       try {
         const list = manifest.bgThunder || [];
         if (!list.length) {
-          console.warn("[bg] manifest.bgThunder is empty");
-          schedule(); // try again later
-          return;
+          console.warn("[bg] manifest.bgThunder empty");
+          schedule(); return;
         }
 
-        const base = list[Math.floor(Math.random() * list.length)];
+        const base = pick(list);
         console.log("[bg] trying:", base);
 
-        const res = await fetch(`sounds/${encodeURIComponent(base)}.${EXT}`);
-        if (!res.ok) {
-          // try the other extension as a simple fallback
-          const alt = EXT === "opus" ? "mp3" : "opus";
-          const res2 = await fetch(`sounds/${encodeURIComponent(base)}.${alt}`);
-          if (!res2.ok) {
-            console.warn("[bg] missing both formats:", base);
-            schedule(); // skip and reschedule
-            return;
-          }
-          const buf2 = await res2.arrayBuffer();
-          const audio2 = await ctx.decodeAudioData(buf2);
-          playBgRoll(audio2);
-        } else {
-          const buf = await res.arrayBuffer();
-          const audio = await ctx.decodeAudioData(buf);
-          playBgRoll(audio);
+        // load with fallback
+        let buf;
+        try {
+          buf = await fetchBufferWithFallback(base);
+        } catch (e) {
+          console.warn("[bg] missing:", base, e);
+          schedule(); return;
         }
+
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+
+        // soft, audible roll envelope
+        const g = ctx.createGain();
+        const target = 0.28 + Math.random() * 0.10; // 0.28–0.38 under bgGain
+        g.gain.value = 0.0001;
+        src.connect(g).connect(bgGain);
+
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(target, now + 0.25);
+        src.start(now);
+
+        const dur = buf.duration;
+        g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
+        g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
+
+        // track & cleanup so Stop truly stops
+        const rec = { src, g };
+        activeBg.push(rec);
+        src.onended = () => {
+          try { g.disconnect(); } catch {}
+          activeBg = activeBg.filter(r => r !== rec);
+        };
       } catch (e) {
         console.warn("[bg] error:", e);
       }
-      schedule(); // schedule next roll
+      schedule(); // next roll
     }, delay * 1000);
   };
 
-  function playBgRoll(buffer) {
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-
-    const g = ctx.createGain();
-    // make sure it’s audible under the quieter rain:
-    const target = 0.28 + Math.random() * 0.10; // 0.28–0.38
-    g.gain.value = 0.0001;
-    src.connect(g).connect(bgGain);
-
-    const now = ctx.currentTime;
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.linearRampToValueAtTime(target, now + 0.25);
-    src.start(now);
-
-    const dur = buffer.duration;
-    g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
-    g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
-
-    // track & cleanup so Stop really stops everything
-    const rec = { src, g };
-    activeBg.push(rec);
-    src.onended = () => {
-      try { g.disconnect(); } catch {}
-      activeBg = activeBg.filter(r => r !== rec);
-    };
-  }
-
-  // kick the first one soon so you can verify it’s working
-  schedule(true);
+  schedule(true); // kick first roll soon for easy verification
 }
 
+function stopBgThunder() {
+  if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+  activeBg.forEach(({src}) => { try { src.stop(); } catch {} });
+  activeBg = [];
+}
 
 // ===================== timer & session =====================
 function startTimer() {
@@ -246,12 +268,10 @@ function startTimer() {
 }
 
 function hardStopAllAudio() {
-  // stop timers
   clearInterval(timerInterval); timerInterval = null;
   if (rainSwapTimer) { clearTimeout(rainSwapTimer); rainSwapTimer = null; }
   stopBgThunder();
 
-  // stop sources
   if (rainSrc) { try { rainSrc.stop(); } catch {} }
   rainSrc = null;
 
@@ -264,7 +284,6 @@ function stopSession() {
   paused = false;
   hardStopAllAudio();
 
-  // reset UI
   document.getElementById("pauseBtn").disabled = true;
   document.getElementById("stopBtn").disabled = true;
   document.getElementById("startBtn").disabled = false;
@@ -283,7 +302,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   await initAudio();
 
-  // init UI labels
+  // init labels
   const mv = parseFloat(document.getElementById("masterVol").value);
   document.getElementById("masterVolOut").textContent = Math.round(mv * 100) + "%";
   const iv = parseInt(document.getElementById("intensity").value, 10);
@@ -378,3 +397,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
+
+// ======= optional global error logs to debug quickly =======
+window.addEventListener('error', e => console.error('Global error:', e.message));
+window.addEventListener('unhandledrejection', e => console.error('Unhandled promise:', e.reason));
