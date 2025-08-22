@@ -215,9 +215,10 @@ function startBgThunder() {
 
         // soft, audible roll envelope
         const g = ctx.createGain();
-        const target = 0.28 + Math.random() * 0.10; // 0.28–0.38 under bgGain
+        const target = 0.6 + Math.random() * 0.2; // 0.6–0.8 inside thunderGain
         g.gain.value = 0.0001;
-        src.connect(g).connect(bgGain);
+        src.connect(g).connect(thunderGain);
+
 
         const now = ctx.currentTime;
         g.gain.setValueAtTime(0.0001, now);
