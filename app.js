@@ -1,10 +1,3 @@
-window.addEventListener('error', e => {
-  console.error('Global error:', e.message);
-});
-window.addEventListener('unhandledrejection', e => {
-  console.error('Unhandled promise:', e.reason);
-});
-
 // ===================== utilities & prefs =====================
 function chooseExt() {
   const a = document.createElement('audio');
@@ -19,6 +12,9 @@ let ctx, masterGain, rainGain, bgGain, thunderGain;
 let rainEQ = null;
 
 let rainSrc = null;
+let activeManual = []; // currently playing manual thunder sources
+let activeBg = [];     // currently playing background thunder sources
+
 let bgTimer = null;
 let rainSwapTimer = null;
 
@@ -49,22 +45,18 @@ async function fetchBuffer(url) {
 async function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-  // master
   masterGain = ctx.createGain();
   masterGain.connect(ctx.destination);
 
-  // buses
   rainGain = ctx.createGain();
   bgGain = ctx.createGain();
   thunderGain = ctx.createGain();
 
-  // default balances (tweak live via UI)
   masterGain.gain.value = parseFloat(document.getElementById("masterVol").value);
-  rainGain.gain.value = 0.28;      // softer bed so thunder stands out
-  bgGain.gain.value = 0.24;        // soft but audible
-  thunderGain.gain.value = 0.9;    // punchy manual claps
+  rainGain.gain.value = 0.28;   // bed kept soft
+  bgGain.gain.value = 0.24;     // soft background rolls
+  thunderGain.gain.value = 0.9; // punchy manual thunder
 
-  // default chain: (EQ can be inserted later)
   rainGain.connect(masterGain);
   bgGain.connect(masterGain);
   thunderGain.connect(masterGain);
@@ -77,8 +69,8 @@ function applyLowFreqSoft(enabled) {
     if (!rainEQ) {
       rainEQ = ctx.createBiquadFilter();
       rainEQ.type = "lowshelf";
-      rainEQ.frequency.value = 80;   // below ~80 Hz
-      rainEQ.gain.value = -8;        // reduce low rumble
+      rainEQ.frequency.value = 80;
+      rainEQ.gain.value = -8;
       rainGain.disconnect();
       rainGain.connect(rainEQ);
       rainEQ.connect(masterGain);
@@ -97,17 +89,11 @@ function applyLowFreqSoft(enabled) {
 
 // ===================== rain loop =====================
 async function startRain(level) {
-  // stop any scheduled swap
   if (rainSwapTimer) { clearTimeout(rainSwapTimer); rainSwapTimer = null; }
-
-  // stop previous
   if (rainSrc) { try { rainSrc.stop(); } catch {} rainSrc = null; }
 
   const list = manifest.rain?.[level] || manifest.rain?.["2"] || [];
-  if (!list.length) {
-    console.warn("No rain list for level", level);
-    return;
-  }
+  if (!list.length) return;
 
   const base = pick(list);
   const buf = await fetchBuffer(enc(base));
@@ -119,14 +105,14 @@ async function startRain(level) {
   src.start();
   rainSrc = src;
 
-  // schedule variety swap every 4–7 minutes
+  // rotate rain every 4–7 minutes
   const nextMs = 240000 + Math.random() * 180000;
   rainSwapTimer = setTimeout(() => {
     if (sessionRunning && !paused) startRain(level).catch(console.error);
   }, nextMs);
 }
 
-// ===================== manual thunder =====================
+// ===================== manual thunder (no ducking) =====================
 async function playThunder(which) {
   const group = manifest.manualThunder?.[which] || [];
   if (!group.length) return;
@@ -137,7 +123,7 @@ async function playThunder(which) {
   const src = ctx.createBufferSource();
   src.buffer = buf;
 
-  // anti-click envelope + route to thunder bus
+  // anti-click envelope
   const g = ctx.createGain();
   g.gain.value = 0.0001;
   src.connect(g).connect(thunderGain);
@@ -147,21 +133,19 @@ async function playThunder(which) {
   g.gain.linearRampToValueAtTime(1.0, now + 0.02);
   src.start(now);
 
-  // brief duck of rain (~ -6 dB) so clap cuts through
-  const current = rainGain.gain.value;
-  const duck = Math.max(0, current * 0.5);
-  rainGain.gain.cancelScheduledValues(now);
-  rainGain.gain.setValueAtTime(current, now);
-  rainGain.gain.linearRampToValueAtTime(duck, now + 0.05);
-  rainGain.gain.linearRampToValueAtTime(current, now + 1.5);
-
-  // fade thunder tail
+  // fade tail to avoid clicks
   const dur = buf.duration;
   g.gain.setValueAtTime(1.0, now + Math.max(0, dur - 0.08));
   g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.02));
-  src.onended = () => { try { g.disconnect(); } catch {} };
 
-  // counter
+  // track & cleanup
+  const rec = { src, g };
+  activeManual.push(rec);
+  src.onended = () => {
+    try { g.disconnect(); } catch {}
+    activeManual = activeManual.filter(r => r !== rec);
+  };
+
   manualCount++;
   document.getElementById("manualCounterLabel").textContent =
     "Manual Thunder: " + manualCount;
@@ -169,13 +153,13 @@ async function playThunder(which) {
 
 // ===================== background thunder =====================
 function startBgThunder() {
-  stopBgThunder(); // ensure only one scheduler
+  stopBgThunder();
   const schedule = () => {
     const delay = 20 + Math.random() * 40; // 20–60s
     bgTimer = setTimeout(async () => {
       try {
         const list = manifest.bgThunder || [];
-        if (!list.length) return schedule();
+        if (!list.length) { schedule(); return; }
 
         const base = pick(list);
         const buf = await fetchBuffer(enc(base));
@@ -183,7 +167,6 @@ function startBgThunder() {
         const src = ctx.createBufferSource();
         src.buffer = buf;
 
-        // per-roll soft gain envelope
         const g = ctx.createGain();
         const target = 0.20 + Math.random() * 0.10; // 0.20–0.30
         g.gain.value = 0.0001;
@@ -197,17 +180,27 @@ function startBgThunder() {
         const dur = buf.duration;
         g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
         g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
-        src.onended = () => { try { g.disconnect(); } catch {} };
+
+        // track & cleanup
+        const rec = { src, g };
+        activeBg.push(rec);
+        src.onended = () => {
+          try { g.disconnect(); } catch {}
+          activeBg = activeBg.filter(r => r !== rec);
+        };
       } catch (e) {
         console.warn("bg thunder error", e);
       }
-      schedule(); // schedule next roll
+      schedule();
     }, delay * 1000);
   };
   schedule();
 }
 function stopBgThunder() {
   if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+  // stop any currently playing bg rolls
+  activeBg.forEach(({src}) => { try { src.stop(); } catch {} });
+  activeBg = [];
 }
 
 // ===================== timer & session =====================
@@ -226,18 +219,26 @@ function startTimer() {
   }, 1000);
 }
 
-function stopSession() {
-  sessionRunning = false;
-  paused = false;
-
-  clearInterval(timerInterval);
-  stopBgThunder();
+function hardStopAllAudio() {
+  // stop timers
+  clearInterval(timerInterval); timerInterval = null;
   if (rainSwapTimer) { clearTimeout(rainSwapTimer); rainSwapTimer = null; }
+  stopBgThunder();
 
+  // stop sources
   if (rainSrc) { try { rainSrc.stop(); } catch {} }
   rainSrc = null;
 
-  // reset buttons
+  activeManual.forEach(({src}) => { try { src.stop(); } catch {} });
+  activeManual = [];
+}
+
+function stopSession() {
+  sessionRunning = false;
+  paused = false;
+  hardStopAllAudio();
+
+  // reset UI
   document.getElementById("pauseBtn").disabled = true;
   document.getElementById("stopBtn").disabled = true;
   document.getElementById("startBtn").disabled = false;
@@ -246,7 +247,6 @@ function stopSession() {
 
 // ===================== UI wiring =====================
 window.addEventListener("DOMContentLoaded", async () => {
-  // load manifest first so we know available files
   try {
     manifest = await fetchJSON('sounds/manifest.json');
   } catch (e) {
@@ -257,7 +257,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   await initAudio();
 
-  // initial UI text
+  // init UI labels
   const mv = parseFloat(document.getElementById("masterVol").value);
   document.getElementById("masterVolOut").textContent = Math.round(mv * 100) + "%";
   const iv = parseInt(document.getElementById("intensity").value, 10);
@@ -284,37 +284,30 @@ window.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("masterVolOut").textContent = Math.round(v * 100) + "%";
   });
 
-  // intensity changes: swap the rain immediately if session is running
+  // intensity changes: swap rain immediately if running
   document.getElementById("intensity").addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
     document.getElementById("intensityOut").textContent = val + " / 5";
     if (sessionRunning && !paused) startRain(val).catch(console.error);
   });
 
-  // low-rumble softener (checkbox)
+  // low-rumble softener
   document.getElementById("lowFreqSoft").addEventListener("change", (e) => {
     applyLowFreqSoft(e.target.checked);
   });
-  // apply initial state
   applyLowFreqSoft(document.getElementById("lowFreqSoft").checked);
 
-  // start button
+  // start
   document.getElementById("startBtn").addEventListener("click", async () => {
     await ctx.resume();
     sessionLength = parseInt(document.getElementById("sessionMins").value, 10) * 60;
 
-    // start rain based on current intensity
     const level = parseInt(document.getElementById("intensity").value, 10);
     await startRain(level);
 
-    // random mode: enable gentle background thunder
-    if (document.getElementById("modeRandom").checked) {
-      startBgThunder();
-    } else {
-      stopBgThunder();
-    }
+    if (document.getElementById("modeRandom").checked) startBgThunder();
+    else stopBgThunder();
 
-    // reset counters & start timer
     manualCount = 0;
     document.getElementById("manualCounterLabel").textContent = "Manual Thunder: 0";
     startTimer();
@@ -326,7 +319,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("startBtn").disabled = true;
   });
 
-  // pause toggles between pause and resume
+  // pause/resume
   document.getElementById("pauseBtn").addEventListener("click", async (e) => {
     if (!sessionRunning) return;
     if (!paused) {
@@ -347,7 +340,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     stopSession();
   });
 
-  // timer display initial
+  // timer label initial
   const sel = document.getElementById("sessionMins");
   const mins = parseInt(sel.value, 10);
   document.getElementById("timer").textContent = `00:00 / ${mins}:00`;
