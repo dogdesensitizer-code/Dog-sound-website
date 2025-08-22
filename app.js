@@ -153,55 +153,81 @@ async function playThunder(which) {
 
 // ===================== background thunder =====================
 function startBgThunder() {
-  stopBgThunder();
-  const schedule = () => {
-    const delay = 20 + Math.random() * 40; // 20–60s
+  stopBgThunder(); // make sure only one scheduler
+
+  const schedule = (initial = false) => {
+    // first roll happens sooner (3–8s), then 20–60s
+    const delay = initial ? (3 + Math.random() * 5) : (20 + Math.random() * 40);
+
     bgTimer = setTimeout(async () => {
       try {
         const list = manifest.bgThunder || [];
-        if (!list.length) { schedule(); return; }
+        if (!list.length) {
+          console.warn("[bg] manifest.bgThunder is empty");
+          schedule(); // try again later
+          return;
+        }
 
-        const base = pick(list);
-        const buf = await fetchBuffer(enc(base));
+        const base = list[Math.floor(Math.random() * list.length)];
+        console.log("[bg] trying:", base);
 
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-
-        const g = ctx.createGain();
-        const target = 0.20 + Math.random() * 0.10; // 0.20–0.30
-        g.gain.value = 0.0001;
-        src.connect(g).connect(bgGain);
-
-        const now = ctx.currentTime;
-        g.gain.setValueAtTime(0.0001, now);
-        g.gain.linearRampToValueAtTime(target, now + 0.25);
-        src.start(now);
-
-        const dur = buf.duration;
-        g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
-        g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
-
-        // track & cleanup
-        const rec = { src, g };
-        activeBg.push(rec);
-        src.onended = () => {
-          try { g.disconnect(); } catch {}
-          activeBg = activeBg.filter(r => r !== rec);
-        };
+        const res = await fetch(`sounds/${encodeURIComponent(base)}.${EXT}`);
+        if (!res.ok) {
+          // try the other extension as a simple fallback
+          const alt = EXT === "opus" ? "mp3" : "opus";
+          const res2 = await fetch(`sounds/${encodeURIComponent(base)}.${alt}`);
+          if (!res2.ok) {
+            console.warn("[bg] missing both formats:", base);
+            schedule(); // skip and reschedule
+            return;
+          }
+          const buf2 = await res2.arrayBuffer();
+          const audio2 = await ctx.decodeAudioData(buf2);
+          playBgRoll(audio2);
+        } else {
+          const buf = await res.arrayBuffer();
+          const audio = await ctx.decodeAudioData(buf);
+          playBgRoll(audio);
+        }
       } catch (e) {
-        console.warn("bg thunder error", e);
+        console.warn("[bg] error:", e);
       }
-      schedule();
+      schedule(); // schedule next roll
     }, delay * 1000);
   };
-  schedule();
+
+  function playBgRoll(buffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const g = ctx.createGain();
+    // make sure it’s audible under the quieter rain:
+    const target = 0.28 + Math.random() * 0.10; // 0.28–0.38
+    g.gain.value = 0.0001;
+    src.connect(g).connect(bgGain);
+
+    const now = ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(target, now + 0.25);
+    src.start(now);
+
+    const dur = buffer.duration;
+    g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
+    g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
+
+    // track & cleanup so Stop really stops everything
+    const rec = { src, g };
+    activeBg.push(rec);
+    src.onended = () => {
+      try { g.disconnect(); } catch {}
+      activeBg = activeBg.filter(r => r !== rec);
+    };
+  }
+
+  // kick the first one soon so you can verify it’s working
+  schedule(true);
 }
-function stopBgThunder() {
-  if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
-  // stop any currently playing bg rolls
-  activeBg.forEach(({src}) => { try { src.stop(); } catch {} });
-  activeBg = [];
-}
+
 
 // ===================== timer & session =====================
 function startTimer() {
