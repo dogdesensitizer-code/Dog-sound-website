@@ -149,6 +149,24 @@
       </label>
     </div>
 
+    <audio id="thunder-audio" controls>
+  <source src="thunder.mp3" type="audio/mpeg">
+</audio>
+
+<div>
+  <label for="lowSlider">Low Frequency:</label>
+  <input type="range" id="lowSlider" min="0" max="75" step="25" value="0">
+  <span id="lowValue">0% reduction</span>
+</div>
+
+<div>
+  <label for="highSlider">High Frequency:</label>
+  <input type="range" id="highSlider" min="0" max="75" step="25" value="0">
+  <span id="highValue">0% reduction</span>
+</div>
+
+<script src="script.js"></script>
+
     <!-- Manual controls (hidden unless Manual mode) -->
     <div class="row" id="manualRow" style="display:none">
       <button class="secondary" id="btnDistant">Play distant</button>
