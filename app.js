@@ -1,15 +1,19 @@
-// ===================== utilities & prefs =====================
+// ===================== utilities & prefs (unchanged) =====================
 function chooseExt() {
   const a = document.createElement('audio');
   return a.canPlayType('audio/ogg; codecs=opus') ? 'opus' : 'mp3';
 }
 const EXT = chooseExt();
-const enc = (s, ext = EXT) => `sounds/${encodeURIComponent(s)}.${ext}`;
+const enc  = (s, ext = EXT) => `sounds/${encodeURIComponent(s)}.${ext}`;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// ===================== global state =====================
+// ===================== global state (mostly unchanged) =====================
 let ctx, masterGain, rainGain, bgGain, thunderGain;
 let rainEQ = null;
+
+// NEW: thunder-band shelves (apply only to thunder)
+let thunderLowShelf = null;
+let thunderHighShelf = null;
 
 let rainSrc = null;
 let activeManual = []; // [{src, g}]
@@ -28,7 +32,7 @@ let elapsed = 0;
 let sessionLength = 600; // seconds
 let manualCount = 0;
 
-// ===================== fetch helpers =====================
+// ===================== fetch helpers (unchanged) =====================
 async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load ${url}`);
@@ -40,8 +44,6 @@ async function fetchBuffer(url) {
   const arr = await res.arrayBuffer();
   return await ctx.decodeAudioData(arr);
 }
-
-// try preferred ext, then the other; return AudioBuffer or throw
 async function fetchBufferWithFallback(base) {
   try {
     return await fetchBuffer(enc(base, EXT));
@@ -51,28 +53,51 @@ async function fetchBufferWithFallback(base) {
   }
 }
 
-// ===================== audio graph =====================
+// ===================== audio graph (revised wiring) =====================
 async function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
 
   masterGain = ctx.createGain();
   masterGain.connect(ctx.destination);
 
-  rainGain = ctx.createGain();
-  bgGain = ctx.createGain();
+  // Program busses
+  rainGain    = ctx.createGain();
+  bgGain      = ctx.createGain();
   thunderGain = ctx.createGain();
 
-  masterGain.gain.value = parseFloat(document.getElementById("masterVol").value);
-  rainGain.gain.value = 0.28;   // bed kept soft
-  bgGain.gain.value = 0.30;     // a hair louder so rolls are audible
-  thunderGain.gain.value = 0.9; // punchy manual thunder
+  // Master vol from UI (0..1)
+  const masterVolEl = document.getElementById("masterVol");
+  masterGain.gain.value = masterVolEl ? parseFloat(masterVolEl.value) : 0.25;
 
+  // Bed levels (original values preserved)
+  rainGain.gain.value    = 0.28;
+  bgGain.gain.value      = 0.30;
+  thunderGain.gain.value = 0.9;
+
+  // Rain bus direct to master (optional rain low-rumble softener kept below)
   rainGain.connect(masterGain);
-  bgGain.connect(masterGain);
-  thunderGain.connect(masterGain);
+  bgGain.connect(masterGain); // bg thunder uses its own envelopes already
+
+  // --- NEW: thunder shelves for "thunder intensity" controls ---
+  thunderLowShelf  = ctx.createBiquadFilter();
+  thunderHighShelf = ctx.createBiquadFilter();
+
+  thunderLowShelf.type = "lowshelf";
+  thunderLowShelf.frequency.value = 120; // rumbles
+
+  thunderHighShelf.type = "highshelf";
+  thunderHighShelf.frequency.value = 3000; // crack transients
+
+  // Wire: thunderGain -> lowShelf -> highShelf -> master
+  thunderGain.connect(thunderLowShelf);
+  thunderLowShelf.connect(thunderHighShelf);
+  thunderHighShelf.connect(masterGain);
+
+  // Initialize shelf gains from current sliders (if present)
+  applyThunderEQFromSliders();
 }
 
-// optional low-rumble reducer on rain bus
+// Optional rain low-rumble reducer on rain bus (unchanged behavior)
 function applyLowFreqSoft(enabled) {
   if (!ctx) return;
   if (enabled) {
@@ -97,7 +122,26 @@ function applyLowFreqSoft(enabled) {
   }
 }
 
-// ===================== rain loop =====================
+// ===================== helpers for thunder shelves (NEW) =====================
+// Map reduction percent → dB cut. 0% = 0 dB, 75% ≈ -24 dB.
+function reductionToDb(percent) {
+  const p = Math.max(0, Math.min(100, percent));
+  return -24 * (p / 100);
+}
+
+function applyThunderEQFromSliders() {
+  const lowEl  = document.getElementById("lowSlider");
+  const highEl = document.getElementById("highSlider");
+  if (!ctx || !thunderLowShelf || !thunderHighShelf) return;
+
+  const lowPct  = lowEl  ? parseInt(lowEl.value, 10)  : 0;  // default no cut
+  const highPct = highEl ? parseInt(highEl.value, 10) : 0;
+
+  thunderLowShelf.gain.value  = reductionToDb(lowPct);
+  thunderHighShelf.gain.value = reductionToDb(highPct);
+}
+
+// ===================== rain loop (unchanged) =====================
 async function startRain(level) {
   if (rainSwapTimer) { clearTimeout(rainSwapTimer); rainSwapTimer = null; }
   if (rainSrc) { try { rainSrc.stop(); } catch {} rainSrc = null; }
@@ -108,14 +152,12 @@ async function startRain(level) {
     return;
   }
 
-  // pick one and load with fallback
   const base = pick(list);
   let buf;
   try {
     buf = await fetchBufferWithFallback(base);
   } catch (e) {
     console.warn("[rain] failed to load", base, e);
-    // try others in the list
     const candidates = list.filter(b => b !== base);
     for (const alt of candidates) {
       try { buf = await fetchBufferWithFallback(alt); break; } catch {}
@@ -137,7 +179,7 @@ async function startRain(level) {
   }, nextMs);
 }
 
-// ===================== manual thunder (NO ducking) =====================
+// ===================== manual thunder (unchanged) =====================
 async function playThunder(which) {
   const group = manifest.manualThunder?.[which] || [];
   if (!group.length) return;
@@ -178,47 +220,37 @@ async function playThunder(which) {
   };
 
   manualCount++;
-  document.getElementById("manualCounterLabel").textContent =
-    "Manual Thunder: " + manualCount;
+  const lbl = document.getElementById("manualCounterLabel");
+  if (lbl) lbl.textContent = "Manual Thunder: " + manualCount;
 }
 
-// ===================== background thunder (early kick + logs) =====================
+// ===================== background thunder (unchanged) =====================
 function startBgThunder() {
   stopBgThunder(); // ensure single scheduler
 
   const schedule = (initial = false) => {
-    // first roll in 3–8s, then 20–60s
     const delay = initial ? (3 + Math.random() * 5) : (20 + Math.random() * 40);
 
     bgTimer = setTimeout(async () => {
       try {
         const list = manifest.bgThunder || [];
-        if (!list.length) {
-          console.warn("[bg] manifest.bgThunder empty");
-          schedule(); return;
-        }
+        if (!list.length) { console.warn("[bg] manifest.bgThunder empty"); schedule(); return; }
 
         const base = pick(list);
         console.log("[bg] trying:", base);
 
-        // load with fallback
         let buf;
-        try {
-          buf = await fetchBufferWithFallback(base);
-        } catch (e) {
-          console.warn("[bg] missing:", base, e);
-          schedule(); return;
-        }
+        try { buf = await fetchBufferWithFallback(base); }
+        catch (e) { console.warn("[bg] missing:", base, e); schedule(); return; }
 
         const src = ctx.createBufferSource();
         src.buffer = buf;
 
         // soft, audible roll envelope
         const g = ctx.createGain();
-        const target = 0.6 + Math.random() * 0.2; // 0.6–0.8 inside thunderGain
+        const target = 0.6 + Math.random() * 0.2;
         g.gain.value = 0.0001;
         src.connect(g).connect(thunderGain);
-
 
         const now = ctx.currentTime;
         g.gain.setValueAtTime(0.0001, now);
@@ -229,7 +261,6 @@ function startBgThunder() {
         g.gain.setValueAtTime(target, now + Math.max(0, dur - 0.4));
         g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.05));
 
-        // track & cleanup so Stop truly stops
         const rec = { src, g };
         activeBg.push(rec);
         src.onended = () => {
@@ -243,7 +274,7 @@ function startBgThunder() {
     }, delay * 1000);
   };
 
-  schedule(true); // kick first roll soon for easy verification
+  schedule(true); // kick first roll soon
 }
 
 function stopBgThunder() {
@@ -252,7 +283,7 @@ function stopBgThunder() {
   activeBg = [];
 }
 
-// ===================== timer & session =====================
+// ===================== timer & session (unchanged) =====================
 function startTimer() {
   clearInterval(timerInterval);
   elapsed = 0;
@@ -260,10 +291,10 @@ function startTimer() {
     elapsed++;
     const min = String(Math.floor(elapsed / 60)).padStart(2, "0");
     const sec = String(elapsed % 60).padStart(2, "0");
-    document.getElementById("timer").textContent =
-      `${min}:${sec} / ${sessionLength/60}:00`;
-    document.getElementById("progressBar").style.width =
-      (elapsed / sessionLength) * 100 + "%";
+    const timerEl = document.getElementById("timer");
+    if (timerEl) timerEl.textContent = `${min}:${sec} / ${sessionLength/60}:00`;
+    const pb = document.getElementById("progressBar");
+    if (pb) pb.style.width = (elapsed / sessionLength) * 100 + "%";
     if (elapsed >= sessionLength) stopSession();
   }, 1000);
 }
@@ -285,13 +316,16 @@ function stopSession() {
   paused = false;
   hardStopAllAudio();
 
-  document.getElementById("pauseBtn").disabled = true;
-  document.getElementById("stopBtn").disabled = true;
-  document.getElementById("startBtn").disabled = false;
-  document.getElementById("pauseBtn").textContent = "Pause";
+  const pauseBtn = document.getElementById("pauseBtn");
+  const stopBtn  = document.getElementById("stopBtn");
+  const startBtn = document.getElementById("startBtn");
+  if (pauseBtn) pauseBtn.disabled = true;
+  if (stopBtn)  stopBtn.disabled  = true;
+  if (startBtn) startBtn.disabled = false;
+  if (pauseBtn) pauseBtn.textContent = "Pause";
 }
 
-// ===================== UI wiring =====================
+// ===================== UI wiring (revised to be tolerant) =====================
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     manifest = await fetchJSON('sounds/manifest.json');
@@ -303,70 +337,96 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   await initAudio();
 
-  // init labels
-  const mv = parseFloat(document.getElementById("masterVol").value);
-  document.getElementById("masterVolOut").textContent = Math.round(mv * 100) + "%";
-  const iv = parseInt(document.getElementById("intensity").value, 10);
-  document.getElementById("intensityOut").textContent = iv + " / 5";
+  // Init labels
+  const mvEl = document.getElementById("masterVol");
+  const mvOut = document.getElementById("masterVolOut");
+  if (mvEl && mvOut) mvOut.textContent = Math.round(parseFloat(mvEl.value) * 100) + "%";
 
-  // mode switch (show/hide manual panel)
-  document.getElementById("modeRandom").addEventListener("change", () => {
-    document.getElementById("manualRow").style.display = "none";
-    document.getElementById("manualCounterRow").style.display = "none";
+  const intensityEl = document.getElementById("intensity");
+  const intensityOut = document.getElementById("intensityOut");
+  if (intensityEl && intensityOut) intensityOut.textContent = `${parseInt(intensityEl.value,10)} / 5`;
+
+  // Mode switch (show/hide manual panel)
+  const modeRandom = document.getElementById("modeRandom");
+  const modeManual = document.getElementById("modeManual");
+  const manualRow = document.getElementById("manualRow");
+  const manualCounterRow = document.getElementById("manualCounterRow");
+
+  modeRandom?.addEventListener("change", () => {
+    if (manualRow) manualRow.style.display = "none";
+    if (manualCounterRow) manualCounterRow.style.display = "none";
   });
-  document.getElementById("modeManual").addEventListener("change", () => {
-    document.getElementById("manualRow").style.display = "";
-    document.getElementById("manualCounterRow").style.display = "";
+  modeManual?.addEventListener("change", () => {
+    if (manualRow) manualRow.style.display = "";
+    if (manualCounterRow) manualCounterRow.style.display = "";
   });
 
-  // manual thunder buttons
-  document.getElementById("btnDistant").addEventListener("click", () => playThunder("roll"));
-  document.getElementById("btnClose").addEventListener("click", () => playThunder("close"));
+  // Manual thunder buttons
+  document.getElementById("btnDistant")?.addEventListener("click", () => playThunder("roll"));
+  document.getElementById("btnClose")?.addEventListener("click", () => playThunder("close"));
 
-  // master volume
-  document.getElementById("masterVol").addEventListener("input", (e) => {
+  // Master volume
+  mvEl?.addEventListener("input", (e) => {
     const v = parseFloat(e.target.value);
     masterGain.gain.value = v;
-    document.getElementById("masterVolOut").textContent = Math.round(v * 100) + "%";
+    if (mvOut) mvOut.textContent = Math.round(v * 100) + "%";
   });
 
-  // intensity changes: swap rain immediately if running
-  document.getElementById("intensity").addEventListener("input", (e) => {
+  // Intensity changes (if present): swap rain immediately
+  intensityEl?.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
-    document.getElementById("intensityOut").textContent = val + " / 5";
+    if (intensityOut) intensityOut.textContent = val + " / 5";
     if (sessionRunning && !paused) startRain(val).catch(console.error);
   });
 
-  // low-rumble softener
-  document.getElementById("lowFreqSoft").addEventListener("change", (e) => {
+  // Low-rumble softener (if present)
+  const softEl = document.getElementById("lowFreqSoft");
+  softEl?.addEventListener("change", (e) => {
     applyLowFreqSoft(e.target.checked);
   });
-  applyLowFreqSoft(document.getElementById("lowFreqSoft").checked);
+  if (softEl) applyLowFreqSoft(softEl.checked); // default when present
 
-  // start
-  document.getElementById("startBtn").addEventListener("click", async () => {
+  // --- NEW: thunder intensity sliders (low/high shelves) ---
+  const lowEl  = document.getElementById("lowSlider");
+  const highEl = document.getElementById("highSlider");
+  function updateThunderShelvesFromUI() {
+    applyThunderEQFromSliders();
+  }
+  lowEl?.addEventListener("input", updateThunderShelvesFromUI);
+  highEl?.addEventListener("input", updateThunderShelvesFromUI);
+  // initialize once more after listeners
+  applyThunderEQFromSliders();
+
+  // Start
+  document.getElementById("startBtn")?.addEventListener("click", async () => {
     await ctx.resume();
-    sessionLength = parseInt(document.getElementById("sessionMins").value, 10) * 60;
+    const minsSel = document.getElementById("sessionMins");
+    sessionLength = parseInt(minsSel?.value ?? "10", 10) * 60;
 
-    const level = parseInt(document.getElementById("intensity").value, 10);
+    // Use intensity if present; otherwise default to level 2
+    const level = intensityEl ? parseInt(intensityEl.value, 10) : 2;
     await startRain(level);
 
-    if (document.getElementById("modeRandom").checked) startBgThunder();
-    else stopBgThunder();
+    if (modeRandom?.checked) startBgThunder();
+    else                     stopBgThunder();
 
     manualCount = 0;
-    document.getElementById("manualCounterLabel").textContent = "Manual Thunder: 0";
+    const lbl = document.getElementById("manualCounterLabel");
+    if (lbl) lbl.textContent = "Manual Thunder: 0";
     startTimer();
 
     sessionRunning = true;
     paused = false;
-    document.getElementById("pauseBtn").disabled = false;
-    document.getElementById("stopBtn").disabled = false;
-    document.getElementById("startBtn").disabled = true;
+    const pauseBtn = document.getElementById("pauseBtn");
+    const stopBtn  = document.getElementById("stopBtn");
+    const startBtn = document.getElementById("startBtn");
+    if (pauseBtn) pauseBtn.disabled = false;
+    if (stopBtn)  stopBtn.disabled  = false;
+    if (startBtn) startBtn.disabled = true;
   });
 
-  // pause/resume
-  document.getElementById("pauseBtn").addEventListener("click", async (e) => {
+  // Pause/Resume
+  document.getElementById("pauseBtn")?.addEventListener("click", async (e) => {
     if (!sessionRunning) return;
     if (!paused) {
       await ctx.suspend();
@@ -381,24 +441,26 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // stop
-  document.getElementById("stopBtn").addEventListener("click", () => {
+  // Stop
+  document.getElementById("stopBtn")?.addEventListener("click", () => {
     stopSession();
   });
 
-  // timer label initial
+  // Timer label initial
   const sel = document.getElementById("sessionMins");
-  const mins = parseInt(sel.value, 10);
-  document.getElementById("timer").textContent = `00:00 / ${mins}:00`;
-  sel.addEventListener("change", (e) => {
+  const mins = parseInt(sel?.value ?? "10", 10);
+  const timerEl = document.getElementById("timer");
+  if (timerEl) timerEl.textContent = `00:00 / ${mins}:00`;
+  sel?.addEventListener("change", (e) => {
     const m = parseInt(e.target.value, 10);
     if (!sessionRunning) {
-      document.getElementById("timer").textContent = `00:00 / ${m}:00`;
-      document.getElementById("progressBar").style.width = "0%";
+      if (timerEl) timerEl.textContent = `00:00 / ${m}:00`;
+      const pb = document.getElementById("progressBar");
+      if (pb) pb.style.width = "0%";
     }
   });
 });
 
-// ======= optional global error logs to debug quickly =======
+// ======= global error logs (unchanged) =======
 window.addEventListener('error', e => console.error('Global error:', e.message));
 window.addEventListener('unhandledrejection', e => console.error('Unhandled promise:', e.reason));

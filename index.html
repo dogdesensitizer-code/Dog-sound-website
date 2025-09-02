@@ -41,28 +41,28 @@
     "description": "Calm Dog Thunder is an educational, nonprofit-style online tool designed to help dog owners safely desensitize their pets to thunderstorm sounds through gradual sound exposure training.",
     "founder": { "@type": "Person", "name": "Douglas Nakazaki" },
     "knowsAbout": [
-    "Dog anxiety",
-    "Thunderstorm desensitization",
-    "Pet training",
-    "Sound therapy",
-    "Rain and thunder audio conditioning"
+      "Dog anxiety",
+      "Thunderstorm desensitization",
+      "Pet training",
+      "Sound therapy",
+      "Rain and thunder audio conditioning"
     ],
     "makesOffer": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD",
-    "url": "https://calmdogthunder.com/",
-    "itemOffered": {
-      "@type": "CreativeWork",
-      "name": "Thunderstorm Sound Desensitization Training",
-      "description": "Free online training tool for reducing thunderstorm anxiety in dogs using safe, customizable sound exposure.",
-      "url": "https://calmdogthunder.com/"
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "url": "https://calmdogthunder.com/",
+      "itemOffered": {
+        "@type": "CreativeWork",
+        "name": "Thunderstorm Sound Desensitization Training",
+        "description": "Free online training tool for reducing thunderstorm anxiety in dogs using safe, customizable sound exposure.",
+        "url": "https://calmdogthunder.com/"
       }
     }
   }
   </script>
 
-  <!-- JSON-LD: FAQPage -->
+  <!-- JSON-LD: FAQPage (updated: removed 'Soften low rumble'; added freq explanation) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -78,10 +78,10 @@
       },
       {
         "@type": "Question",
-        "name": "Is this safe for sensitive dogs?",
+        "name": "What do the Low and High Frequency sliders control?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes—use low volume, enable the \"Soften low rumble\" option, and keep sessions short. Stop if your dog shows stress."
+          "text": "Thunder contains deep low-frequency rumbles and sharp high-frequency cracks. The sliders let you reduce each range independently to match your dog's natural hearing sensitivity. Start with larger reductions (e.g., 75%) and ease back only as your dog stays relaxed."
         }
       },
       {
@@ -89,7 +89,7 @@
         "name": "Do I need special speakers?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No, but clear speakers help. Avoid very loud subwoofers. Keep volume comfortable."
+          "text": "You can use any speakers, but clearer speakers or a soundbar help reproduce thunder more accurately. Keep volume comfortable and avoid very loud subwoofer levels."
         }
       },
       {
@@ -104,24 +104,23 @@
   }
   </script>
 
-  <!-- JSON-LD: HowTo -->
+  <!-- JSON-LD: HowTo (updated: master volume + frequency reductions) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "HowTo",
     "name": "Gentle thunderstorm desensitization session",
-    "description": "Use Calm Dog Thunder to run a short, low-volume session and gradually increase intensity as your dog remains comfortable.",
+    "description": "Use Calm Dog Thunder to run a short, low-volume session and gradually reduce frequency filters as your dog remains comfortable.",
     "totalTime": "PT10M",
     "tool": [
       { "@type": "HowToTool", "name": "Phone or computer" },
-      { "@type": "HowToTool", "name": "Speakers or headphones (optional)" }
+      { "@type": "HowToTool", "name": "Speakers or soundbar (recommended)" }
     ],
     "step": [
       { "@type": "HowToStep", "name": "Choose session length", "text": "Pick 5–30 minutes based on your dog's tolerance." },
-      { "@type": "HowToStep", "name": "Lower the volume", "text": "Set master volume low and intensity to 1–2." },
-      { "@type": "HowToStep", "name": "Enable rumble softener", "text": "Turn on \"Soften low rumble\" for sensitive dogs." },
-      { "@type": "HowToStep", "name": "Start the session", "text": "Tap Start Session and reward calm behavior." },
-      { "@type": "HowToStep", "name": "Progress gradually", "text": "Increase intensity slightly across sessions if your dog remains relaxed." }
+      { "@type": "HowToStep", "name": "Lower the volume", "text": "Set master volume low (10–25%)." },
+      { "@type": "HowToStep", "name": "Adjust frequency reductions", "text": "Use Low/High frequency sliders to soften rumbles and cracks; start at ~75% reduction and ease back over time." },
+      { "@type": "HowToStep", "name": "Start the session", "text": "Tap Start Session and reward calm behavior." }
     ],
     "image": "https://calmdogthunder.com/images/calm-dog-logo.png",
     "estimatedCost": { "@type": "MonetaryAmount", "currency": "USD", "value": "0" },
@@ -137,6 +136,13 @@
   </header>
 
   <main class="card">
+    <!-- SESSION CONTROLS: moved ABOVE the mode radios -->
+    <div class="row top-controls">
+      <button id="startBtn" class="primary">Start Session</button>
+      <button id="pauseBtn" class="secondary" disabled>Pause</button>
+      <button id="stopBtn" class="secondary" disabled>Stop</button>
+    </div>
+
     <!-- Mode switch -->
     <div class="row">
       <label class="checkbox">
@@ -149,23 +155,33 @@
       </label>
     </div>
 
-    <audio id="thunder-audio" controls>
-  <source src="thunder.mp3" type="audio/mpeg">
-</audio>
+    <!-- Hidden audio element (controls removed; keeps your WebAudio routing) -->
+    <audio id="thunder-audio" style="display:none">
+      <source src="thunder.mp3" type="audio/mpeg">
+    </audio>
 
-<div>
-  <label for="lowSlider">Low Frequency:</label>
-  <input type="range" id="lowSlider" min="0" max="75" step="25" value="0">
-  <span id="lowValue">0% reduction</span>
-</div>
+    <!-- Master volume (kept & moved above frequency sliders) -->
+    <div class="row">
+      <label for="masterVol"><span>Master volume</span>
+        <input id="masterVol" type="range" min="0" max="1" step="0.01" value="0.25" />
+      </label>
+      <output id="masterVolOut" aria-live="polite">25%</output>
+    </div>
 
-<div>
-  <label for="highSlider">High Frequency:</label>
-  <input type="range" id="highSlider" min="0" max="75" step="25" value="0">
-  <span id="highValue">0% reduction</span>
-</div>
+    <!-- Low/High frequency reductions (with clarified labels) -->
+    <div class="row">
+      <label for="lowSlider"><span>Low Frequency (thunder intensity)</span>
+        <input type="range" id="lowSlider" min="0" max="75" step="25" value="0" />
+      </label>
+      <output id="lowValue" aria-live="polite">0% reduction</output>
+    </div>
 
-<script src="script.js"></script>
+    <div class="row">
+      <label for="highSlider"><span>High Frequency (thunder intensity)</span>
+        <input type="range" id="highSlider" min="0" max="75" step="25" value="0" />
+      </label>
+      <output id="highValue" aria-live="polite">0% reduction</output>
+    </div>
 
     <!-- Manual controls (hidden unless Manual mode) -->
     <div class="row" id="manualRow" style="display:none">
@@ -176,36 +192,24 @@
       <span id="manualCounterLabel">Manual Thunder: 0</span>
     </div>
 
-    <!-- Session controls -->
+    <!-- Former UI kept for compatibility but hidden: Intensity + Soften low rumble -->
+    <div class="row" style="display:none">
+      <label for="intensity"><span>Intensity</span>
+        <input id="intensity" type="range" min="1" max="5" step="1" value="2" />
+      </label>
+      <output id="intensityOut" aria-live="polite">2 / 5</output>
+    </div>
+
+    <div class="row small" style="display:none">
+      <label class="checkbox">
+        <input type="checkbox" id="lowFreqSoft" checked />
+        Soften low rumble (dog-safe)
+      </label>
+    </div>
+
+    <!-- Session length / timer / progress (unchanged) -->
     <section aria-labelledby="controlsTitle">
       <h2 id="controlsTitle" class="sr-only">Session Controls</h2>
-
-      <div class="row">
-        <button id="startBtn" class="primary">Start Session</button>
-        <button id="pauseBtn" class="secondary" disabled>Pause</button>
-        <button id="stopBtn" class="secondary" disabled>Stop</button>
-      </div>
-
-      <div class="row">
-        <label for="intensity"><span>Intensity</span>
-          <input id="intensity" type="range" min="1" max="5" step="1" value="2" />
-        </label>
-        <output id="intensityOut" aria-live="polite">2 / 5</output>
-      </div>
-
-      <div class="row">
-        <label for="masterVol"><span>Master volume</span>
-          <input id="masterVol" type="range" min="0" max="1" step="0.01" value="0.25" />
-        </label>
-        <output id="masterVolOut" aria-live="polite">25%</output>
-      </div>
-
-      <div class="row small">
-        <label class="checkbox">
-          <input type="checkbox" id="lowFreqSoft" checked />
-          Soften low rumble (dog‑safe)
-        </label>
-      </div>
 
       <div class="row">
         <label for="sessionMins"><span>Session length</span>
@@ -228,45 +232,9 @@
     </section>
   </main>
 
-  <!-- Visible content for HowTo -->
+  <!-- Visible content for HowTo (updated wording) -->
   <section id="how-to" class="card">
     <h2>How to Use Calm Dog Thunder</h2>
     <ol>
       <li>Choose a session length (5–30 minutes).</li>
-      <li>Set master volume low and intensity to 1–2.</li>
-      <li>Enable "Soften low rumble" for sensitive dogs.</li>
-      <li>Tap Start Session and reward calm behavior.</li>
-      <li>Increase intensity slightly across sessions if your dog remains relaxed.</li>
-    </ol>
-  </section>
-
-  <!-- Visible content for FAQ -->
-  <section id="faq" class="card">
-    <h2>Frequently Asked Questions</h2>
-
-    <h3>Will this help my dog's thunderstorm anxiety?</h3>
-    <p>Many owners find gradual sound exposure helpful. Start at low volume and short sessions, and consult your veterinarian for personalized guidance.</p>
-
-    <h3>Is this safe for sensitive dogs?</h3>
-    <p>Yes—use low volume, enable the "Soften low rumble" option, and keep sessions short. Stop if your dog shows stress.</p>
-
-    <h3>Do I need special speakers?</h3>
-    <p>No, but clear speakers help. Avoid very loud subwoofers. Keep volume comfortable.</p>
-
-    <h3>Does this replace professional training?</h3>
-    <p>No. It is an educational tool, not a substitute for veterinary or professional training advice.</p>
-  </section>
-
-  <footer class="footer">
-    <small>Not a medical device. Consult your vet for guidance. ·
-      <a href="about.html">About</a> ·
-      <a href="privacy.html">Privacy</a> ·
-      <a href="terms.html">Terms</a> ·
-      <a href="mailto:dogdensensitizer@gmail.com">Contact</a>
-    </small>
-  </footer>
-
-  <script src="./app.js"></script>
-</body>
-</html>
-"<!-- test deploy $(date) -->" 
+      <li>Set mas
