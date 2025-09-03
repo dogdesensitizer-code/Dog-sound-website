@@ -224,7 +224,7 @@ async function playThunder(which) {
   if (lbl) lbl.textContent = "Manual Thunder: " + manualCount;
 }
 
-// ===================== background thunder (unchanged) =====================
+// ===================== background thunder (UPDATED to include Sound Ideas) =====================
 function startBgThunder() {
   stopBgThunder(); // ensure single scheduler
 
@@ -233,10 +233,18 @@ function startBgThunder() {
 
     bgTimer = setTimeout(async () => {
       try {
-        const list = manifest.bgThunder || [];
-        if (!list.length) { console.warn("[bg] manifest.bgThunder empty"); schedule(); return; }
+        // NEW: merge default bg list + Sound Ideas list if present
+        const pool = []
+          .concat(manifest.bgThunder || [])
+          .concat(manifest.soundIdeasThunder || []);
 
-        const base = pick(list);
+        if (!pool.length) {
+          console.warn("[bg] no background thunder in manifest");
+          schedule();
+          return;
+        }
+
+        const base = pick(pool);
         console.log("[bg] trying:", base);
 
         let buf;
@@ -328,6 +336,7 @@ function stopSession() {
 // ===================== UI wiring (revised to be tolerant) =====================
 window.addEventListener("DOMContentLoaded", async () => {
   try {
+    // Load from sounds/ to match your current project layout
     manifest = await fetchJSON('sounds/manifest.json');
   } catch (e) {
     console.error("manifest.json load failed", e);

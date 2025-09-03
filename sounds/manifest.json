@@ -27,5 +27,22 @@
     "roll": [
       "QP03 0280 Thunder moderately distant rolling"
     ]
-  }
+  },
+  "soundIdeasThunder": [
+    "STORM_Light Rain Distant Thunder_THNDR005",
+    "STORM_Medium Rain Distant Thunder_THNDR007",
+    "STORM_Thunder Lightning Light Rain_THNDR016",
+    "STORM_Thunder Rain Drips_THNDR017",
+    "STORM_Thunderstorm Claps Rolls_THNDR019",
+    "THUN_Big Lightning Strike Roll_THNDR024",
+    "THUN_Continuous Distant Roll_THNDR046",
+    "THUN_Distant Continuous Rumble_THNDR063",
+    "THUN_Heavy Clap Roll_THNDR097",
+    "THUN_Heavy Single Booming Clap_THNDR108",
+    "THUN_Low Rolling Sub Rumble_THNDR109",
+    "THUN_Soft Distant Rolling Rumble_THNDR131",
+    "THUN_Tearing Strikes Thunder Claps_THNDR140",
+    "THUN_Thunder Rolls And Rumble_THNDR154",
+    "THUN_Quick Explosive Clap_THNDR120"
+  ]
 }
