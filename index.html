@@ -62,7 +62,7 @@
   }
   </script>
 
-  <!-- JSON-LD: FAQPage (updated: removed 'Soften low rumble'; added freq explanation) -->
+  <!-- JSON-LD: FAQPage -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -104,7 +104,7 @@
   }
   </script>
 
-  <!-- JSON-LD: HowTo (updated: master volume + frequency reductions) -->
+  <!-- JSON-LD: HowTo -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -136,7 +136,7 @@
   </header>
 
   <main class="card">
-    <!-- SESSION CONTROLS: moved ABOVE the mode radios -->
+    <!-- Session controls -->
     <div class="row top-controls">
       <button id="startBtn" class="primary">Start Session</button>
       <button id="pauseBtn" class="secondary" disabled>Pause</button>
@@ -155,38 +155,7 @@
       </label>
     </div>
 
-    <!-- Hidden audio element (controls removed; keeps your WebAudio routing) -->
-    <audio id="thunder-audio" style="display:none">
-      <source src="thunder.mp3" type="audio/mpeg">
-    </audio>
-
-    <!-- Master volume (kept & moved above frequency sliders) -->
-    <div class="row">
-      <label for="masterVol"><span>Master volume</span>
-        <input id="masterVol" type="range" min="0" max="1" step="0.01" value="0.25" />
-      </label>
-      <output id="masterVolOut" aria-live="polite">25%</output>
-    </div>
-
-    <!-- Low/High frequency reductions (with clarified labels) -->
-    <div>
-      <label for="lowSlider">
-        Low frequency reduction:
-        <span id="lowPct">0%</span>
-      </label><br>
-        <input id="lowSlider" type="range" min="0" max="75" step="25" value="0">
-    </div>
-
-    <div>
-      <label for="highSlider">
-        High frequency reduction:
-        <span id="highPct">0%</span>
-      </label><br>
-        <input id="highSlider" type="range" min="0" max="75" step="25" value="0">
-    </div>
-
-
-    <!-- Manual controls (hidden unless Manual mode) -->
+    <!-- ⬇️ Moved block: manual controls + counter + session/timer/progress -->
     <div class="row" id="manualRow" style="display:none">
       <button class="secondary" id="btnDistant">Play distant</button>
       <button class="secondary" id="btnClose">Play close</button>
@@ -195,22 +164,6 @@
       <span id="manualCounterLabel">Manual Thunder: 0</span>
     </div>
 
-    <!-- Former UI kept for compatibility but hidden: Intensity + Soften low rumble -->
-    <div class="row" style="display:none">
-      <label for="intensity"><span>Intensity</span>
-        <input id="intensity" type="range" min="1" max="5" step="1" value="2" />
-      </label>
-      <output id="intensityOut" aria-live="polite">2 / 5</output>
-    </div>
-
-    <div class="row small" style="display:none">
-      <label class="checkbox">
-        <input type="checkbox" id="lowFreqSoft" checked />
-        Soften low rumble (dog-safe)
-      </label>
-    </div>
-
-    <!-- Session length / timer / progress (unchanged) -->
     <section aria-labelledby="controlsTitle">
       <h2 id="controlsTitle" class="sr-only">Session Controls</h2>
 
@@ -233,9 +186,55 @@
 
       <p class="hint">Start low. Keep sessions short. If your dog shows stress, pause, lower volume, or stop.</p>
     </section>
+    <!-- ⬆️ End moved block -->
+
+    <!-- Hidden audio element -->
+    <audio id="thunder-audio" style="display:none">
+      <source src="thunder.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Master volume -->
+    <div class="row">
+      <label for="masterVol"><span>Master volume</span>
+        <input id="masterVol" type="range" min="0" max="1" step="0.01" value="0.25" />
+      </label>
+      <output id="masterVolOut" aria-live="polite">25%</output>
+    </div>
+
+    <!-- Frequency reductions -->
+    <div>
+      <label for="lowSlider">
+        Low frequency reduction:
+        <span id="lowPct">0%</span>
+      </label><br>
+      <input id="lowSlider" type="range" min="0" max="75" step="25" value="0">
+    </div>
+
+    <div>
+      <label for="highSlider">
+        High frequency reduction:
+        <span id="highPct">0%</span>
+      </label><br>
+      <input id="highSlider" type="range" min="0" max="75" step="25" value="0">
+    </div>
+
+    <!-- Former/hidden controls kept for compatibility -->
+    <div class="row" style="display:none">
+      <label for="intensity"><span>Intensity</span>
+        <input id="intensity" type="range" min="1" max="5" step="1" value="2" />
+      </label>
+      <output id="intensityOut" aria-live="polite">2 / 5</output>
+    </div>
+
+    <div class="row small" style="display:none">
+      <label class="checkbox">
+        <input type="checkbox" id="lowFreqSoft" checked />
+        Soften low rumble (dog-safe)
+      </label>
+    </div>
   </main>
 
-  <!-- Visible content for HowTo (updated wording) -->
+  <!-- How To -->
   <section id="how-to" class="card">
     <h2>How to Use Calm Dog Thunder</h2>
     <ol>
@@ -246,7 +245,7 @@
     </ol>
   </section>
 
-  <!-- Visible content for FAQ (added frequency explanation; removed soften-rumble guidance) -->
+  <!-- FAQ -->
   <section id="faq" class="card">
     <h2>Frequently Asked Questions</h2>
 
@@ -272,9 +271,7 @@
     </small>
   </footer>
 
-  <!-- Your EQ script (kept) -->
   <script src="script.js"></script>
-  <!-- Your app logic (timers, random/manual engine, etc.) -->
   <script src="./app.js"></script>
 </body>
 </html>
