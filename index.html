@@ -169,19 +169,22 @@
     </div>
 
     <!-- Low/High frequency reductions (with clarified labels) -->
-    <div class="row">
-      <label for="lowSlider"><span>Low Frequency (thunder intensity)</span>
-        <input type="range" id="lowSlider" min="0" max="75" step="25" value="0" />
-      </label>
-      <output id="lowValue" aria-live="polite">0% reduction</output>
+    <div>
+      <label for="lowSlider">
+        Low frequency reduction:
+        <span id="lowPct">0%</span>
+      </label><br>
+        <input id="lowSlider" type="range" min="0" max="75" step="25" value="0">
     </div>
 
-    <div class="row">
-      <label for="highSlider"><span>High Frequency (thunder intensity)</span>
-        <input type="range" id="highSlider" min="0" max="75" step="25" value="0" />
-      </label>
-      <output id="highValue" aria-live="polite">0% reduction</output>
+    <div>
+      <label for="highSlider">
+        High frequency reduction:
+        <span id="highPct">0%</span>
+      </label><br>
+        <input id="highSlider" type="range" min="0" max="75" step="25" value="0">
     </div>
+
 
     <!-- Manual controls (hidden unless Manual mode) -->
     <div class="row" id="manualRow" style="display:none">
