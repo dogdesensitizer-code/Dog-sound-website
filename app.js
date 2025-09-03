@@ -129,17 +129,32 @@ function reductionToDb(percent) {
   return -24 * (p / 100);
 }
 
+// Update any matching label ids with "<n>%"
+function setPctText(idCandidates, val) {
+  for (const id of idCandidates) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = `${val}%`; return true; }
+  }
+  return false;
+}
+
 function applyThunderEQFromSliders() {
   const lowEl  = document.getElementById("lowSlider");
   const highEl = document.getElementById("highSlider");
   if (!ctx || !thunderLowShelf || !thunderHighShelf) return;
 
-  const lowPct  = lowEl  ? parseInt(lowEl.value, 10)  : 0;  // default no cut
+  const lowPct  = lowEl  ? parseInt(lowEl.value, 10)  : 0;  // 0,25,50,75
   const highPct = highEl ? parseInt(highEl.value, 10) : 0;
 
+  // apply EQ
   thunderLowShelf.gain.value  = reductionToDb(lowPct);
   thunderHighShelf.gain.value = reductionToDb(highPct);
+
+  // update labels (tries multiple common ids so your HTML doesn't have to change)
+  setPctText(["lowPct","lowOut","lowFreqOut"], lowPct);
+  setPctText(["highPct","highOut","highFreqOut"], highPct);
 }
+
 
 // ===================== rain loop (unchanged) =====================
 async function startRain(level) {
