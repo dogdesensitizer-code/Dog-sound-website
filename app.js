@@ -74,30 +74,28 @@ async function initAudio() {
   bgGain.gain.value      = 0.30;
   thunderGain.gain.value = 0.9;
 
-  // Rain bus direct to master (optional rain low-rumble softener kept below)
+  // Rain & bg direct to master
   rainGain.connect(masterGain);
-  bgGain.connect(masterGain); // bg thunder uses its own envelopes already
+  bgGain.connect(masterGain);
 
-  // --- NEW: thunder shelves for "thunder intensity" controls ---
+  // --- thunder shelves for "thunder intensity" controls ---
   thunderLowShelf  = ctx.createBiquadFilter();
   thunderHighShelf = ctx.createBiquadFilter();
 
   thunderLowShelf.type = "lowshelf";
   thunderLowShelf.frequency.value = 120; // rumbles
-
   thunderHighShelf.type = "highshelf";
   thunderHighShelf.frequency.value = 3000; // crack transients
 
-  // Wire: thunderGain -> lowShelf -> highShelf -> master
   thunderGain.connect(thunderLowShelf);
   thunderLowShelf.connect(thunderHighShelf);
   thunderHighShelf.connect(masterGain);
 
-  // Initialize shelf gains from current sliders (if present)
+  // Initialize shelf gains from current sliders
   applyThunderEQFromSliders();
 }
 
-// Optional rain low-rumble reducer on rain bus (unchanged behavior)
+// Optional rain low-rumble reducer
 function applyLowFreqSoft(enabled) {
   if (!ctx) return;
   if (enabled) {
@@ -122,7 +120,7 @@ function applyLowFreqSoft(enabled) {
   }
 }
 
-// ===================== helpers for thunder shelves (NEW) =====================
+// ===================== helpers for thunder shelves =====================
 // Map reduction percent → dB cut. 0% = 0 dB, 75% ≈ -24 dB.
 function reductionToDb(percent) {
   const p = Math.max(0, Math.min(100, percent));
@@ -146,17 +144,14 @@ function applyThunderEQFromSliders() {
   const lowPct  = lowEl  ? parseInt(lowEl.value, 10)  : 0;  // 0,25,50,75
   const highPct = highEl ? parseInt(highEl.value, 10) : 0;
 
-  // apply EQ
   thunderLowShelf.gain.value  = reductionToDb(lowPct);
   thunderHighShelf.gain.value = reductionToDb(highPct);
 
-  // update labels (tries multiple common ids so your HTML doesn't have to change)
   setPctText(["lowPct","lowOut","lowFreqOut"], lowPct);
   setPctText(["highPct","highOut","highFreqOut"], highPct);
 }
 
-
-// ===================== rain loop (unchanged) =====================
+// ===================== rain loop =====================
 async function startRain(level) {
   if (rainSwapTimer) { clearTimeout(rainSwapTimer); rainSwapTimer = null; }
   if (rainSrc) { try { rainSrc.stop(); } catch {} rainSrc = null; }
@@ -194,7 +189,7 @@ async function startRain(level) {
   }, nextMs);
 }
 
-// ===================== manual thunder (unchanged) =====================
+// ===================== manual thunder =====================
 async function playThunder(which) {
   const group = manifest.manualThunder?.[which] || [];
   if (!group.length) return;
@@ -221,7 +216,7 @@ async function playThunder(which) {
   g.gain.linearRampToValueAtTime(1.0, now + 0.02);
   src.start(now);
 
-  // soft tail to avoid clicks
+  // soft tail
   const dur = buf.duration;
   g.gain.setValueAtTime(1.0, now + Math.max(0, dur - 0.08));
   g.gain.linearRampToValueAtTime(0.0001, now + Math.max(0, dur - 0.02));
@@ -239,16 +234,15 @@ async function playThunder(which) {
   if (lbl) lbl.textContent = "Manual Thunder: " + manualCount;
 }
 
-// ===================== background thunder (UPDATED to include Sound Ideas) =====================
+// ===================== background thunder =====================
 function startBgThunder() {
-  stopBgThunder(); // ensure single scheduler
+  stopBgThunder();
 
   const schedule = (initial = false) => {
     const delay = initial ? (3 + Math.random() * 5) : (20 + Math.random() * 40);
 
     bgTimer = setTimeout(async () => {
       try {
-        // NEW: merge default bg list + Sound Ideas list if present
         const pool = []
           .concat(manifest.bgThunder || [])
           .concat(manifest.soundIdeasThunder || []);
@@ -269,7 +263,6 @@ function startBgThunder() {
         const src = ctx.createBufferSource();
         src.buffer = buf;
 
-        // soft, audible roll envelope
         const g = ctx.createGain();
         const target = 0.6 + Math.random() * 0.2;
         g.gain.value = 0.0001;
@@ -293,11 +286,11 @@ function startBgThunder() {
       } catch (e) {
         console.warn("[bg] error:", e);
       }
-      schedule(); // next roll
+      schedule();
     }, delay * 1000);
   };
 
-  schedule(true); // kick first roll soon
+  schedule(true);
 }
 
 function stopBgThunder() {
@@ -306,7 +299,7 @@ function stopBgThunder() {
   activeBg = [];
 }
 
-// ===================== timer & session (unchanged) =====================
+// ===================== timer & session =====================
 function startTimer() {
   clearInterval(timerInterval);
   elapsed = 0;
@@ -348,10 +341,9 @@ function stopSession() {
   if (pauseBtn) pauseBtn.textContent = "Pause";
 }
 
-// ===================== UI wiring (revised to be tolerant) =====================
+// ===================== UI wiring =====================
 window.addEventListener("DOMContentLoaded", async () => {
   try {
-    // Load from sounds/ to match your current project layout
     manifest = await fetchJSON('sounds/manifest.json');
   } catch (e) {
     console.error("manifest.json load failed", e);
@@ -361,7 +353,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   await initAudio();
 
-  // Init labels
   const mvEl = document.getElementById("masterVol");
   const mvOut = document.getElementById("masterVolOut");
   if (mvEl && mvOut) mvOut.textContent = Math.round(parseFloat(mvEl.value) * 100) + "%";
@@ -370,7 +361,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   const intensityOut = document.getElementById("intensityOut");
   if (intensityEl && intensityOut) intensityOut.textContent = `${parseInt(intensityEl.value,10)} / 5`;
 
-  // Mode switch (show/hide manual panel)
   const modeRandom = document.getElementById("modeRandom");
   const modeManual = document.getElementById("modeManual");
   const manualRow = document.getElementById("manualRow");
@@ -385,49 +375,39 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (manualCounterRow) manualCounterRow.style.display = "";
   });
 
-  // Manual thunder buttons
   document.getElementById("btnDistant")?.addEventListener("click", () => playThunder("roll"));
   document.getElementById("btnClose")?.addEventListener("click", () => playThunder("close"));
 
-  // Master volume
   mvEl?.addEventListener("input", (e) => {
     const v = parseFloat(e.target.value);
     masterGain.gain.value = v;
     if (mvOut) mvOut.textContent = Math.round(v * 100) + "%";
   });
 
-  // Intensity changes (if present): swap rain immediately
   intensityEl?.addEventListener("input", (e) => {
     const val = parseInt(e.target.value, 10);
     if (intensityOut) intensityOut.textContent = val + " / 5";
     if (sessionRunning && !paused) startRain(val).catch(console.error);
   });
 
-  // Low-rumble softener (if present)
   const softEl = document.getElementById("lowFreqSoft");
   softEl?.addEventListener("change", (e) => {
     applyLowFreqSoft(e.target.checked);
   });
-  if (softEl) applyLowFreqSoft(softEl.checked); // default when present
+  if (softEl) applyLowFreqSoft(softEl.checked);
 
-  // --- NEW: thunder intensity sliders (low/high shelves) ---
   const lowEl  = document.getElementById("lowSlider");
   const highEl = document.getElementById("highSlider");
-  function updateThunderShelvesFromUI() {
-    applyThunderEQFromSliders();
-  }
+  function updateThunderShelvesFromUI() { applyThunderEQFromSliders(); }
   lowEl?.addEventListener("input", updateThunderShelvesFromUI);
   highEl?.addEventListener("input", updateThunderShelvesFromUI);
-  // initialize once more after listeners
   applyThunderEQFromSliders();
 
-  // Start
   document.getElementById("startBtn")?.addEventListener("click", async () => {
     await ctx.resume();
     const minsSel = document.getElementById("sessionMins");
     sessionLength = parseInt(minsSel?.value ?? "10", 10) * 60;
 
-    // Use intensity if present; otherwise default to level 2
     const level = intensityEl ? parseInt(intensityEl.value, 10) : 2;
     await startRain(level);
 
@@ -449,7 +429,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (startBtn) startBtn.disabled = true;
   });
 
-  // Pause/Resume
   document.getElementById("pauseBtn")?.addEventListener("click", async (e) => {
     if (!sessionRunning) return;
     if (!paused) {
@@ -465,12 +444,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Stop
   document.getElementById("stopBtn")?.addEventListener("click", () => {
     stopSession();
   });
 
-  // Timer label initial
   const sel = document.getElementById("sessionMins");
   const mins = parseInt(sel?.value ?? "10", 10);
   const timerEl = document.getElementById("timer");
@@ -488,3 +465,80 @@ window.addEventListener("DOMContentLoaded", async () => {
 // ======= global error logs (unchanged) =======
 window.addEventListener('error', e => console.error('Global error:', e.message));
 window.addEventListener('unhandledrejection', e => console.error('Unhandled promise:', e.reason));
+
+/* ========== Onboarding Modal Logic (new) ========== */
+(function(){
+  const KEY = 'cdt_onboard_v1';
+  function qs(id){ return document.getElementById(id); }
+
+  function findStartControl() {
+    return qs('startBtn')
+        || document.querySelector('[data-role="start-session"]')
+        || document.querySelector('button.start, .btn-start');
+  }
+
+  function openModal(){
+    const overlay = qs('cdtOnboardOverlay');
+    const modal   = qs('cdtOnboard');
+    if (!overlay || !modal) return;
+    overlay.hidden = false; modal.hidden = false;
+    const btnStart= qs('cdtStartNow');
+    (btnStart || modal).focus();
+    document.addEventListener('keydown', onEsc);
+    document.addEventListener('focus', trapFocus, true);
+  }
+  function closeModal(){
+    const overlay = qs('cdtOnboardOverlay');
+    const modal   = qs('cdtOnboard');
+    if (!overlay || !modal) return;
+    overlay.hidden = true; modal.hidden = true;
+    document.removeEventListener('keydown', onEsc);
+    document.removeEventListener('focus', trapFocus, true);
+  }
+  function onEsc(e){ if(e.key === 'Escape') closeModal(); }
+  function trapFocus(e){
+    const modal = qs('cdtOnboard');
+    if (modal && !modal.hidden && !modal.contains(e.target)) {
+      e.stopPropagation();
+      (qs('cdtStartNow') || modal).focus();
+    }
+  }
+  function setSeen(){ try { localStorage.setItem(KEY, '1'); } catch(_){} }
+  function shouldShow(){ try { return !localStorage.getItem(KEY); } catch(_) { return true; } }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const overlay = qs('cdtOnboardOverlay');
+    const modal   = qs('cdtOnboard');
+    if (!overlay || !modal) return;
+
+    const btnClose= qs('cdtOnboardClose');
+    const btnStart= qs('cdtStartNow');
+    const btnLater= qs('cdtLater');
+    const cbDont  = qs('cdtDontShow');
+
+    if (shouldShow()) openModal();
+
+    overlay?.addEventListener('click', closeModal);
+    btnClose?.addEventListener('click', closeModal);
+    btnLater?.addEventListener('click', () => {
+      if (cbDont?.checked) setSeen();
+      closeModal();
+    });
+
+    btnStart?.addEventListener('click', () => {
+      setSeen();
+      closeModal();
+      const realStart = findStartControl();
+      if (realStart) realStart.click();
+    });
+
+    // Intercept first Start click if user reaches for it before seeing modal
+    const realStart = findStartControl();
+    if (realStart && shouldShow()) {
+      realStart.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        openModal();
+      }, { once: true });
+    }
+  });
+})();
