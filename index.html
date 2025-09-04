@@ -29,6 +29,60 @@
 
   <link rel="stylesheet" href="styles.css" />
 
+  <style id="cdt-onboard-inline">
+  /* Force full-screen overlay + centered dialog, even if external CSS fails */
+  #cdtOnboardOverlay,
+  #cdtOnboard {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483640; /* max out */
+  }
+  #cdtOnboardOverlay[hidden],
+  #cdtOnboard[hidden] { display: none !important; }
+
+  #cdtOnboardOverlay {
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(2px);
+  }
+
+  #cdtOnboard {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #cdtOnboard .cdt-panel {
+    position: relative;
+    width: min(720px, 92vw);
+    background: #111722;
+    border: 1px solid #223043;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    color: #eaf0f7;
+    padding: 16px 18px;
+  }
+  #cdtOnboard .cdt-x {
+    position: absolute;
+    top: 10px; right: 14px;
+    font-size: 26px; line-height: 1;
+    background: transparent; border: 0; color: #cfe3fb; cursor: pointer;
+  }
+  #cdtOnboard h2 { margin: 0 0 10px; font-size: clamp(20px,3vw,26px); }
+  #cdtOnboard .cdt-steps { margin: 0; padding-left: 18px; }
+  #cdtOnboard .cdt-steps li { margin: 10px 0; }
+  #cdtOnboard .cdt-note { color: #9fb0c3; font-size: 14px; display: block; margin-top: 6px; }
+  #cdtOnboard .cdt-links a { color: #7cc2ff; text-decoration: none; }
+  #cdtOnboard .cdt-links a:hover { text-decoration: underline; }
+  #cdtOnboard .cdt-check { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; }
+  #cdtOnboard .cdt-actions { display: flex; gap: 10px; margin-top: 14px; }
+  #cdtOnboard .cdt-primary, #cdtOnboard .cdt-ghost {
+    padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;
+    border: 1px solid #2a3545;
+  }
+  #cdtOnboard .cdt-primary { background: #1b2a3c; color: #eaf0f7; }
+  #cdtOnboard .cdt-ghost   { background: #0c121b; color: #cfe3fb; }
+</style>
+
   <!-- JSON-LD (unchanged) -->
   <script type="application/ld+json">
   {
@@ -282,9 +336,10 @@
     </small>
   </footer>
 
-  <!-- Onboarding Modal -->
-  <div id="cdtOnboardOverlay" class="cdt-overlay" hidden></div>
-  <div id="cdtOnboard" class="cdt-modal" role="dialog" aria-modal="true" aria-labelledby="cdtOnboardTitle" hidden>
+  <!-- Onboarding Modal (overlay + centered panel) -->
+<div id="cdtOnboardOverlay" hidden></div>
+<div id="cdtOnboard" role="dialog" aria-modal="true" aria-labelledby="cdtOnboardTitle" hidden>
+  <div class="cdt-panel">
     <button class="cdt-x" id="cdtOnboardClose" aria-label="Close">&times;</button>
     <h2 id="cdtOnboardTitle">Quick Setup for Best Results</h2>
 
@@ -312,6 +367,7 @@
       <button id="cdtLater" class="cdt-ghost">Maybe later</button>
     </div>
   </div>
+</div>
 
   <!-- (Optional legacy) -->
   <script src="./app.js"></script>
