@@ -124,22 +124,31 @@
   <main class="card">
     <p class="hint">Start low. Keep sessions short. If your dog shows stress, pause, lower volume, or stop.</p>
 
-    <!-- Speaker callout (kept) -->
-    <section class="card" style="margin:20px 0; border-left:4px solid #7cc2ff; background:#111722;">
-      <h2 style="margin-top:0;">🎧 Important: Use Proper Speakers</h2>
-      <p>
-        Dogs react most strongly to <strong>low rumbles (20–80 Hz)</strong> and 
-        <strong>sharp cracks (2–8 kHz)</strong>. Unfortunately, phones and laptops 
-        can’t reproduce these frequencies — they cut off the deep bass and soften the highs.
-      </p>
-      <p>
-        For effective training, we recommend using a <strong>2.1 speaker system</strong> with a subwoofer, 
-        a soundbar + sub, or a high-quality Bluetooth speaker that reaches at least ~40 Hz. 
-      </p>
-      <p>
-        👉 Learn more and see our <a href="/speakers/">Speaker &amp; Subwoofer Guide</a>.
-      </p>
-    </section>
+<!-- Speaker callout: hidden by default; JS will show it only for first-time users -->
+<section id="speakerCallout" class="card" style="display:none; margin:20px 0; border-left:4px solid #7cc2ff; background:#111722;">
+  <h2 style="margin-top:0;">🎧 Important: Use Proper Speakers</h2>
+  <p>
+    Dogs react most strongly to <strong>low rumbles (20–80 Hz)</strong> and 
+    <strong>sharp cracks (2–8 kHz)</strong>. Unfortunately, phones and laptops 
+    can’t reproduce these frequencies — they cut off the deep bass and soften the highs.
+  </p>
+  <p>
+    For effective training, we recommend using a <strong>2.1 speaker system</strong> with a subwoofer, 
+    a soundbar + sub, or a high-quality Bluetooth speaker that reaches at least ~40 Hz. 
+  </p>
+  <p>
+    👉 Learn more and see our <a href="/speakers/">Speaker &amp; Subwoofer Guide</a>.
+  </p>
+</section>
+
+<noscript>
+  <!-- If JS is off, always show the callout -->
+  <section class="card" style="margin:20px 0; border-left:4px solid #7cc2ff; background:#111722;">
+    <h2 style="margin-top:0;">🎧 Important: Use Proper Speakers</h2>
+    <p>JavaScript is disabled; please read our <a href="/speakers/">Speaker &amp; Subwoofer Guide</a>.</p>
+  </section>
+</noscript>
+
    
     <!-- Session controls -->
     <div class="row top-controls">

@@ -466,62 +466,38 @@ window.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener('error', e => console.error('Global error:', e.message));
 window.addEventListener('unhandledrejection', e => console.error('Unhandled promise:', e.reason));
 
-/* ========== Onboarding Modal Logic (robust) ========== */
+/* ========== Onboarding Modal Logic (no-flash + gated callout) ========== */
 (function(){
-  // New versioned key to avoid prior test state auto-skipping.
-  const KEY = 'cdt_onboard_v2';
-
-  function qs(id){ return document.getElementById(id); }
-  function log(...a){ try { console.log('[onboard]', ...a); } catch(_){} }
-
-  function findStartControl() {
-    return qs('startBtn')
-        || document.querySelector('[data-role="start-session"]')
-        || document.querySelector('button.start, .btn-start');
-  }
-
-  // Force show via URL param ?onboard=1 (great for testing)
-  function hasForceParam(){
+  const KEY = 'cdt_onboard_v3'; // bump if you change copy to re-show once
+  const qs  = (id) => document.getElementById(id);
+  const hasForce = () => {
     try { return new URLSearchParams(location.search).get('onboard') === '1'; }
     catch { return false; }
-  }
-
-  function setSeen(){ try { localStorage.setItem(KEY, '1'); } catch(_){} }
-  function clearSeen(){ try { localStorage.removeItem(KEY); } catch(_){} }
-  function shouldShow(){
-    if (hasForceParam()) return true;
-    try { return !localStorage.getItem(KEY); } catch(_) { return true; }
-  }
+  };
+  const getSeen  = () => { try { return !!localStorage.getItem(KEY); } catch { return false; } };
+  const setSeen  = () => { try { localStorage.setItem(KEY, '1'); } catch {} };
 
   function openModal(){
     const overlay = qs('cdtOnboardOverlay');
     const modal   = qs('cdtOnboard');
     if (!overlay || !modal) return;
-
     overlay.hidden = false;
     modal.hidden   = false;
-
-    // Don’t allow clicking the overlay to dismiss (prevents accidental close)
-    overlay.style.pointerEvents = 'none';
-
-    const btnStart= qs('cdtStartNow');
-    (btnStart || modal).focus();
-
+    overlay.style.pointerEvents = 'none'; // overlay click won't auto-close
+    (qs('cdtStartNow') || modal).focus();
     document.addEventListener('keydown', onEsc);
     document.addEventListener('focus', trapFocus, true);
-
-    log('opened');
   }
-  function closeModal(reason='unknown'){
+  function closeModal(){
     const overlay = qs('cdtOnboardOverlay');
     const modal   = qs('cdtOnboard');
     if (!overlay || !modal) return;
-    overlay.hidden = true; modal.hidden = true;
+    overlay.hidden = true;
+    modal.hidden   = true;
     document.removeEventListener('keydown', onEsc);
     document.removeEventListener('focus', trapFocus, true);
-    log('closed:', reason);
   }
-  function onEsc(e){ if(e.key === 'Escape') closeModal('esc'); }
+  function onEsc(e){ if (e.key === 'Escape') closeModal(); }
   function trapFocus(e){
     const modal = qs('cdtOnboard');
     if (modal && !modal.hidden && !modal.contains(e.target)) {
@@ -530,53 +506,58 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
     }
   }
 
+  // Show/hide the inline callout based on seen state
+  function updateSpeakerCallout(){
+    const el = qs('speakerCallout');
+    if (!el) return;
+    if (getSeen() && !hasForce()) {
+      // Seen onboarding -> keep callout hidden
+      el.style.display = 'none';
+    } else {
+      // First-time or forced -> show callout
+      el.style.display = '';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    const overlay = qs('cdtOnboardOverlay');
-    const modal   = qs('cdtOnboard');
-    if (!overlay || !modal) return;
+    // Always apply callout visibility immediately (prevents flash)
+    updateSpeakerCallout();
 
     const btnClose= qs('cdtOnboardClose');
     const btnStart= qs('cdtStartNow');
     const btnLater= qs('cdtLater');
     const cbDont  = qs('cdtDontShow');
 
-    // Always clear the old key once (helps if v1 was set)
-    try { localStorage.removeItem('cdt_onboard_v1'); } catch{}
+    // Only open the modal if first-time OR forced by ?onboard=1
+    if (!getSeen() || hasForce()) {
+      openModal();
+    }
 
-    // Show if we should, or if forced by query param
-    if (shouldShow()) openModal();
-    else log('skipped (key set)');
-
-    // Explicit buttons only (no overlay click-to-close)
-    btnClose?.addEventListener('click', () => closeModal('X button'));
+    // Buttons
+    btnClose?.addEventListener('click', () => closeModal());
     btnLater?.addEventListener('click', () => {
       if (cbDont?.checked) setSeen();
-      closeModal('maybe later');
+      updateSpeakerCallout();
+      closeModal();
     });
-
     btnStart?.addEventListener('click', () => {
       setSeen();
-      closeModal('start-now');
-      const realStart = findStartControl();
-      if (realStart) realStart.click();
+      updateSpeakerCallout();
+      closeModal();
+      // trigger the real Start button
+      const realStart = qs('startBtn') ||
+        document.querySelector('[data-role="start-session"], button.start, .btn-start');
+      realStart?.click();
     });
 
-    // Intercept FIRST Start click only if user tries to start before seeing modal
-    const realStart = findStartControl();
-    if (realStart && shouldShow()) {
+    // Intercept FIRST Start click only if the user hasn't seen onboarding yet
+    const realStart = qs('startBtn') ||
+      document.querySelector('[data-role="start-session"], button.start, .btn-start');
+    if (realStart && !getSeen() && !hasForce()) {
       realStart.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         openModal();
       }, { once: true });
-      log('armed first-click interceptor');
     }
-
-    // For debugging: expose helpers in console
-    window.__cdtOnboard = {
-      clear: () => { clearSeen(); log('cleared key'); },
-      show:  () => { openModal(); },
-      key:   KEY
-    };
   });
 })();
-
