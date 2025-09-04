@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Speaker & Subwoofer Requirements | Calm Dog Thunder</title>
+  <meta name="description" content="Why external speakers and subwoofers matter for realistic thunder/fireworks training. Frequency ranges, dog vs. human hearing, product recommendations, and how to check your speaker specs." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0e1116;
+      --card:#151a23;
+      --ink:#eaf0f7;
+      --muted:#9fb0c3;
+      --accent:#7cc2ff;
+      --good:#7ee787;
+      --warn:#ffd166;
+      --danger:#ff7b72;
+      --ring: rgba(124,194,255,0.35);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;line-height:1.55}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px;margin:0 auto;padding:28px 20px 64px}
+    header{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+    .logo{width:44px;height:44px;border-radius:12px;background:
+      radial-gradient(60% 60% at 70% 30%, #ffffff40, transparent 60%),
+      linear-gradient(135deg,#2a6bf6,#8ee3ff);}
+    h1{font-size:clamp(24px,3.5vw,36px);margin:0 0 6px;font-weight:800}
+    .sub{color:var(--muted);margin:0 0 18px}
+    .card{background:var(--card);border:1px solid #1e2530;border-radius:16px;padding:20px;margin:16px 0;box-shadow:0 8px 30px #00000060}
+    .card h2{margin-top:0;font-size:clamp(20px,3vw,26px)}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:880px){.grid{grid-template-columns:1.1fr .9fr}}
+    .kicker{display:inline-block;background:#1a2432;border:1px solid #2a3545;color:#a9c2dd;padding:2px 10px;border-radius:999px;font-size:12px;letter-spacing:.03em;text-transform:uppercase;margin-bottom:10px}
+    ul{padding-left:20px}
+    .note{font-size:14px;color:var(--muted)}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #2a3545;background:#1b2330;font-size:12px;color:#cfe3fb;margin-right:8px}
+    .table{width:100%;border-collapse:collapse;font-size:14.5px}
+    .table th,.table td{border-bottom:1px solid #223043;padding:12px 10px;text-align:left;vertical-align:top}
+    .table th{color:#cde2ff;font-weight:600}
+    .tag{font-size:12px;padding:2px 8px;border-radius:999px;background:#1f2a38;border:1px solid #2e3c52;color:#cbe1fb;margin-left:8px;white-space:nowrap}
+    .faq dt{font-weight:600;margin-top:12px}
+    .faq dd{margin:6px 0 14px;color:var(--muted)}
+    .callout{border-left:3px solid var(--accent);padding:10px 12px;background:#111722;border-radius:10px}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0c121b;border:1px solid #1f2a3a;padding:1px 6px;border-radius:6px}
+    .viz{width:100%;height:auto;display:block;border-radius:12px;border:1px solid #213046;background:#0b1017}
+    .steps ol{margin:0;padding-left:20px}
+    .steps li{margin:8px 0}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Speaker & Subwoofer Requirements</h1>
+        <p class="sub">Why proper speakers matter for realistic thunder/fireworks training — plus recommended options and how to check your current gear.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <span class="kicker">Why sound quality matters</span>
+        <h2>Dogs react to <em>unexpected</em> sounds across a wide frequency range</h2>
+        <p>
+          Thunder and fireworks stress dogs because of two things working together:
+          <strong>deep rumbles (20–80&nbsp;Hz)</strong> you feel more than hear, and
+          <strong>sharp high-frequency cracks (2–8&nbsp;kHz)</strong> that arrive suddenly.
+          Phone and laptop speakers roll off the bass and soften the highs, so training is less effective.
+          A <strong>2.1 system with a subwoofer</strong> (or a TV soundbar with a sub) recreates the full spectrum.
+        </p>
+
+        <div class="callout">
+          <span class="pill">Quick take</span>
+          For best results, use any setup that can reproduce <strong>down to ~40&nbsp;Hz</strong> (decent rumbles)
+          and clean highs to at least <strong>15–20&nbsp;kHz</strong>.
+          Even a budget sub makes a big difference.
+        </div>
+      </section>
+
+      <aside class="card">
+        <span class="kicker">Jump to</span>
+        <p>
+          <a href="#diagram">Frequency diagram</a> •
+          <a href="#howto">How to check your speakers</a> •
+          <a href="#why-external">Why external speakers</a> •
+          <a href="#recs">Recommendations</a> •
+          <a href="#faq">FAQ</a>
+        </p>
+        <p class="note">Tip: If your device volume is low, also raise volume on your speaker/sub amp and your TV/system menu (sometimes there’s a separate “sub level”).</p>
+      </aside>
+    </div>
+
+    <section id="diagram" class="card">
+      <span class="kicker">Visual guide</span>
+      <h2>Rumble • Boom • Crack — plus dog vs. human hearing</h2>
+      <!-- Inline SVG -->
+      <svg class="viz" viewBox="0 0 980 340" role="img" aria-labelledby="freqTitle freqDesc">
+        <title id="freqTitle">Frequency ranges for thunder sounds and hearing ranges</title>
+        <desc id="freqDesc">Shows low rumble 20–80 Hz, boom 100–500 Hz, crack 2–8 kHz; dog hearing ~20 Hz–45 kHz; human hearing ~20 Hz–20 kHz.</desc>
+
+        <rect x="0" y="0" width="980" height="340" fill="#0b1017"></rect>
+
+        <!-- Axis -->
+        <line x1="40" y1="280" x2="940" y2="280" stroke="#2a3a4f" stroke-width="2"/>
+        <g fill="#9fb0c3" font-size="12">
+          <line x1="60"  y1="280" x2="60"  y2="272" stroke="#2a3a4f" />
+          <text x="60" y="300" text-anchor="middle">20 Hz</text>
+
+          <line x1="150" y1="280" x2="150" y2="272" stroke="#2a3a4f" />
+          <text x="150" y="300" text-anchor="middle">40 Hz</text>
+
+          <line x1="240" y1="280" x2="240" y2="272" stroke="#2a3a4f" />
+          <text x="240" y="300" text-anchor="middle">80 Hz</text>
+
+          <line x1="330" y1="280" x2="330" y2="272" stroke="#2a3a4f" />
+          <text x="330" y="300" text-anchor="middle">100 Hz</text>
+
+          <line x1="480" y1="280" x2="480" y2="272" stroke="#2a3a4f" />
+          <text x="480" y="300" text-anchor="middle">500 Hz</text>
+
+          <line x1="620" y1="280" x2="620" y2="272" stroke="#2a3a4f" />
+          <text x="620" y="300" text-anchor="middle">2 kHz</text>
+
+          <line x1="760" y1="280" x2="760" y2="272" stroke="#2a3a4f" />
+          <text x="760" y="300" text-anchor="middle">8 kHz</text>
+
+          <line x1="880" y1="280" x2="880" y2="272" stroke="#2a3a4f" />
+          <text x="880" y="300" text-anchor="middle">20 kHz</text>
+
+          <line x1="930" y1="280" x2="930" y2="272" stroke="#2a3a4f" />
+          <text x="930" y="300" text-anchor="middle">45 kHz</text>
+        </g>
+
+        <!-- Ranges -->
+        <g>
+          <rect x="60" y="90" width="180" height="28" rx="6" fill="#22465f" stroke="#2e78a0"/>
+          <text x="150" y="110" fill="#cfe3fb" font-size="13" text-anchor="middle">RUMBLE • 20–80 Hz</text>
+
+          <rect x="330" y="130" width="150" height="28" rx="6" fill="#22465f" stroke="#2e78a0"/>
+          <text x="405" y="150" fill="#cfe3fb" font-size="13" text-anchor="middle">BOOM • 100–500 Hz</text>
+
+          <rect x="620" y="170" width="140" height="28" rx="6" fill="#22465f" stroke="#2e78a0"/>
+          <text x="690" y="190" fill="#cfe3fb" font-size="13" text-anchor="middle">CRACK • 2–8 kHz</text>
+        </g>
+
+        <!-- Human -->
+        <line x1="60" y1="230" x2="880" y2="230" stroke="#7cc2ff" stroke-width="6" />
+        <text x="470" y="222" fill="#7cc2ff" font-weight="600" font-size="13" text-anchor="middle">Human hearing ~20 Hz – 20 kHz</text>
+
+        <!-- Dog -->
+        <line x1="60" y1="60" x2="930" y2="60" stroke="#7ee787" stroke-width="6" />
+        <text x="500" y="52" fill="#7ee787" font-weight="600" font-size="13" text-anchor="middle">Dog hearing ~20 Hz – 45 kHz</text>
+
+        <!-- Roll-off marker -->
+        <line x1="205" y1="280" x2="205" y2="40" stroke="#ff7b72" stroke-width="1.5" stroke-dasharray="5,6" />
+        <text x="205" y="22" fill="#ff7b72" font-size="12" text-anchor="middle">Typical phone/laptop bass roll-off (~120 Hz)</text>
+      </svg>
+
+      <p class="note">Positions are illustrative (not strict log scale). Dog upper limit varies by breed/age; ~45&nbsp;kHz is a common reference.</p>
+    </section>
+
+    <section id="howto" class="card steps">
+      <span class="kicker">Check your gear</span>
+      <h2>How to find your speaker’s frequency range</h2>
+      <ol>
+        <li><strong>Look on the product page:</strong> Search your model name + <span class="mono">"specs"</span> or <span class="mono">"frequency response"</span>. Most brands list a range like <em>35 Hz – 20 kHz</em> under “Specifications” or “Tech Specs.”</li>
+        <li><strong>Check the manual:</strong> Your quick-start guide or full manual (PDF) typically includes “Frequency response” or “System response.”</li>
+        <li><strong>Inspect the box/label:</strong> Packaging for 2.1 systems and soundbars often prints the claimed low-frequency limit.</li>
+        <li><strong>Receiver/TV menus:</strong> If using a receiver or soundbar, look for <em>“Bass,” “Sub Level,” “Crossover,” “LFE”</em> settings—these indicate a true sub path (deeper bass reproduction).</li>
+        <li><strong>If no numbers are listed:</strong> Assume portable/laptop speakers roll off around ~100–150 Hz (limited rumbles). Consider a 2.1 system to reach ≤40–50 Hz.</li>
+      </ol>
+      <p class="note">The <em>lower</em> the first number (Hz), the deeper the bass. For realistic thunder, aim for ≤40&nbsp;Hz. Highs to 15–20&nbsp;kHz ensure crisp crack transients.</p>
+    </section>
+
+    <section id="why-external" class="card">
+      <span class="kicker">Capability checkpoint</span>
+      <h2>Why external speakers (or a subwoofer) change everything</h2>
+      <ul>
+        <li><strong>Low-end extension:</strong> Many small speakers fade below ~120&nbsp;Hz, erasing thunder “feel.”</li>
+        <li><strong>Dynamic headroom:</strong> Subs handle sudden peaks without distortion (less “harsh,” more realistic).</li>
+        <li><strong>Placement control:</strong> A sub on the floor couples vibrations your dog can sense.</li>
+        <li><strong>Independent levels:</strong> Most 2.1 systems let you trim the sub level to your dog’s comfort.</li>
+      </ul>
+      <p class="note">For our app’s sliders: “Low-frequency reduction” targets the <em>Rumble</em> band, and “High-frequency reduction” targets the <em>Crack</em> band. Adjust to your dog’s sensitivity.</p>
+    </section>
+
+    <section id="recs" class="card">
+      <span class="kicker">Recommended setups</span>
+      <h2>Our Picks + Alternatives</h2>
+      <p>We list our <strong>recommended picks first</strong>, then strong alternatives, then budget/upgrade options. Frequency responses are from manufacturer specs (real-world performance varies).</p>
+
+      <!-- Recommendations -->
+      <h3>Our Recommendations (Top 4 Picks)</h3>
+      <table class="table" aria-label="Top recommended speaker options">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Model</th>
+            <th>Freq. Response</th>
+            <th>Why it Helps</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Portable Bluetooth</td>
+            <td>JBL Charge 5</td>
+            <td>65 Hz – 20 kHz</td>
+            <td>Waterproof, portable, strong bass for size — flexible around the home.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Computer 2.1</td>
+            <td>Logitech Z625</td>
+            <td>35 Hz – 20 kHz</td>
+            <td>Affordable sub with rumbles into the 30s Hz for realistic thunder.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>TV Soundbar + Sub</td>
+            <td>Sony HT-S350 (2.1)</td>
+            <td>35 Hz – 20 kHz</td>
+            <td>Living-room friendly; sub digs deep for convincing thunder.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Powered 2-Channel</td>
+            <td>Edifier R1280DB</td>
+            <td>55 Hz – 20 kHz</td>
+            <td>Simple bookshelf pair with Bluetooth/optical; clean mids/highs.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Top Choices -->
+      <h3>Top Choices (Strong Alternatives)</h3>
+      <table class="table" aria-label="Strong alternative speaker options">
+        <tbody>
+          <tr>
+            <td>Portable BT</td>
+            <td>Sony SRS-XB43</td>
+            <td>20 Hz – 20 kHz</td>
+            <td>Larger BT unit with genuinely deep bass (near subwoofer lows).</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Computer 2.1</td>
+            <td>Klipsch ProMedia 2.1</td>
+            <td>31 Hz – 20 kHz</td>
+            <td>THX-certified; strong punch and deeper reach than many budget subs.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>TV 2.1</td>
+            <td>Samsung HW-B450</td>
+            <td>43 Hz – 20 kHz</td>
+            <td>Wireless sub; well-balanced for TV and training use.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Powered 2-Channel</td>
+            <td>Audioengine A2+ Wireless</td>
+            <td>65 Hz – 22 kHz</td>
+            <td>Compact, high-quality; optional sub out for future upgrade.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Other Options -->
+      <h3>Other Options (Budget / Entry / Upgrade Paths)</h3>
+      <table class="table" aria-label="Budget or upgrade path options">
+        <tbody>
+          <tr>
+            <td>Portable BT</td>
+            <td>Anker Soundcore Motion+</td>
+            <td>50 Hz – 40 kHz</td>
+            <td>Hi-Res Audio; very wide treble, respectable low end for the price.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Computer 2.1</td>
+            <td>Creative Pebble Plus 2.1</td>
+            <td>50 Hz – 20 kHz</td>
+            <td>Ultra-affordable starter; sub adds clear depth vs. PC speakers.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>TV 2.1</td>
+            <td>Vizio V-Series 2.1 (V21x-J8)</td>
+            <td>~50 Hz – 20 kHz</td>
+            <td>Budget-friendly soundbar with wireless sub; easy TV integration.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+          <tr>
+            <td>Bookshelf Upgrade</td>
+            <td>Mackie CR4-XBT</td>
+            <td>65 Hz – 20 kHz</td>
+            <td>Studio-monitor style clarity; add a sub later for full thunder realism.</td>
+            <td><a href="#">Add link</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="note">Tip: Look at the lowest “Hz” — ≤40&nbsp;Hz is ideal for thunder rumbles. Sub placement near a wall/corner can boost perceived depth.</p>
+    </section>
+
+    <section id="faq" class="card">
+      <span class="kicker">FAQ</span>
+      <h2>Common questions</h2>
+      <dl class="faq">
+        <dt>Can I just use my phone?</dt>
+        <dd>It will play, but most phones can’t reproduce <em>rumbles</em> below ~120&nbsp;Hz, which are key to realism. Training still “works,” but progress may be slower.</dd>
+
+        <dt>Do I need an expensive system?</dt>
+        <dd>No. Even an affordable 2.1 desktop set with a small sub is a major upgrade.</dd>
+
+        <dt>Why does my dog react when I don’t hear much?</dt>
+        <dd>Dogs hear higher frequencies (up to ~45&nbsp;kHz) and also sense low-frequency vibration through the floor and body.</dd>
+
+        <dt>How do I add affiliate links?</dt>
+        <dd>Join an affiliate program (e.g., Amazon Associates). Replace “Add link” anchors with your tracking URL, e.g. <span class="mono">&lt;a href="https://www.amazon.com/dp/ASIN?tag=YOURTAG-20" target="_blank" rel="noopener"&gt;Buy on Amazon&lt;/a&gt;</span>.</dd>
+      </dl>
+    </section>
+
+    <footer class="card" style="text-align:center">
+      <p class="note">© <span id="yr"></span> Calm Dog Thunder. Educational guidance only — always adjust levels to your dog’s comfort.</p>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
