@@ -466,10 +466,13 @@ window.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener('error', e => console.error('Global error:', e.message));
 window.addEventListener('unhandledrejection', e => console.error('Unhandled promise:', e.reason));
 
-/* ========== Onboarding Modal Logic (new) ========== */
+/* ========== Onboarding Modal Logic (robust) ========== */
 (function(){
-  const KEY = 'cdt_onboard_v1';
+  // New versioned key to avoid prior test state auto-skipping.
+  const KEY = 'cdt_onboard_v2';
+
   function qs(id){ return document.getElementById(id); }
+  function log(...a){ try { console.log('[onboard]', ...a); } catch(_){} }
 
   function findStartControl() {
     return qs('startBtn')
@@ -477,25 +480,48 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
         || document.querySelector('button.start, .btn-start');
   }
 
+  // Force show via URL param ?onboard=1 (great for testing)
+  function hasForceParam(){
+    try { return new URLSearchParams(location.search).get('onboard') === '1'; }
+    catch { return false; }
+  }
+
+  function setSeen(){ try { localStorage.setItem(KEY, '1'); } catch(_){} }
+  function clearSeen(){ try { localStorage.removeItem(KEY); } catch(_){} }
+  function shouldShow(){
+    if (hasForceParam()) return true;
+    try { return !localStorage.getItem(KEY); } catch(_) { return true; }
+  }
+
   function openModal(){
     const overlay = qs('cdtOnboardOverlay');
     const modal   = qs('cdtOnboard');
     if (!overlay || !modal) return;
-    overlay.hidden = false; modal.hidden = false;
+
+    overlay.hidden = false;
+    modal.hidden   = false;
+
+    // Don’t allow clicking the overlay to dismiss (prevents accidental close)
+    overlay.style.pointerEvents = 'none';
+
     const btnStart= qs('cdtStartNow');
     (btnStart || modal).focus();
+
     document.addEventListener('keydown', onEsc);
     document.addEventListener('focus', trapFocus, true);
+
+    log('opened');
   }
-  function closeModal(){
+  function closeModal(reason='unknown'){
     const overlay = qs('cdtOnboardOverlay');
     const modal   = qs('cdtOnboard');
     if (!overlay || !modal) return;
     overlay.hidden = true; modal.hidden = true;
     document.removeEventListener('keydown', onEsc);
     document.removeEventListener('focus', trapFocus, true);
+    log('closed:', reason);
   }
-  function onEsc(e){ if(e.key === 'Escape') closeModal(); }
+  function onEsc(e){ if(e.key === 'Escape') closeModal('esc'); }
   function trapFocus(e){
     const modal = qs('cdtOnboard');
     if (modal && !modal.hidden && !modal.contains(e.target)) {
@@ -503,8 +529,6 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
       (qs('cdtStartNow') || modal).focus();
     }
   }
-  function setSeen(){ try { localStorage.setItem(KEY, '1'); } catch(_){} }
-  function shouldShow(){ try { return !localStorage.getItem(KEY); } catch(_) { return true; } }
 
   document.addEventListener('DOMContentLoaded', () => {
     const overlay = qs('cdtOnboardOverlay');
@@ -516,29 +540,43 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
     const btnLater= qs('cdtLater');
     const cbDont  = qs('cdtDontShow');
 
-    if (shouldShow()) openModal();
+    // Always clear the old key once (helps if v1 was set)
+    try { localStorage.removeItem('cdt_onboard_v1'); } catch{}
 
-    overlay?.addEventListener('click', closeModal);
-    btnClose?.addEventListener('click', closeModal);
+    // Show if we should, or if forced by query param
+    if (shouldShow()) openModal();
+    else log('skipped (key set)');
+
+    // Explicit buttons only (no overlay click-to-close)
+    btnClose?.addEventListener('click', () => closeModal('X button'));
     btnLater?.addEventListener('click', () => {
       if (cbDont?.checked) setSeen();
-      closeModal();
+      closeModal('maybe later');
     });
 
     btnStart?.addEventListener('click', () => {
       setSeen();
-      closeModal();
+      closeModal('start-now');
       const realStart = findStartControl();
       if (realStart) realStart.click();
     });
 
-    // Intercept first Start click if user reaches for it before seeing modal
+    // Intercept FIRST Start click only if user tries to start before seeing modal
     const realStart = findStartControl();
     if (realStart && shouldShow()) {
       realStart.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         openModal();
       }, { once: true });
+      log('armed first-click interceptor');
     }
+
+    // For debugging: expose helpers in console
+    window.__cdtOnboard = {
+      clear: () => { clearSeen(); log('cleared key'); },
+      show:  () => { openModal(); },
+      key:   KEY
+    };
   });
 })();
+
