@@ -157,12 +157,19 @@ async function startRain(level) {
   if (rainSrc) { try { rainSrc.stop(); } catch {} rainSrc = null; }
 
   const list = manifest.rain?.[level] || manifest.rain?.["2"] || [];
-  if (!list.length) {
-    console.warn("No rain list for level", level);
-    return;
-  }
 
-  const base = pick(list);
+// Filter out files that *look* like they contain thunder.
+// (Adjust the pattern to match your filenames.)
+const PURE_RAIN_ONLY = true;
+const disallowPattern = /thunder|lightning|boom|strike|rumble|close|distant/i;
+
+let candidates = list.slice();
+if (PURE_RAIN_ONLY) {
+  const filtered = candidates.filter(name => !disallowPattern.test(name));
+  if (filtered.length) candidates = filtered; // only use filtered if we found any
+}
+
+const base = pick(candidates);
   let buf;
   try {
     buf = await fetchBufferWithFallback(base);
@@ -361,19 +368,26 @@ window.addEventListener("DOMContentLoaded", async () => {
   const intensityOut = document.getElementById("intensityOut");
   if (intensityEl && intensityOut) intensityOut.textContent = `${parseInt(intensityEl.value,10)} / 5`;
 
-  const modeRandom = document.getElementById("modeRandom");
-  const modeManual = document.getElementById("modeManual");
-  const manualRow = document.getElementById("manualRow");
-  const manualCounterRow = document.getElementById("manualCounterRow");
+const modeRandom = document.getElementById("modeRandom");
+const modeManual = document.getElementById("modeManual");
+const manualRow = document.getElementById("manualRow");
+const manualCounterRow = document.getElementById("manualCounterRow");
 
-  modeRandom?.addEventListener("change", () => {
-    if (manualRow) manualRow.style.display = "none";
-    if (manualCounterRow) manualCounterRow.style.display = "none";
-  });
-  modeManual?.addEventListener("change", () => {
-    if (manualRow) manualRow.style.display = "";
-    if (manualCounterRow) manualCounterRow.style.display = "";
-  });
+// REPLACE your current handlers with this:
+modeRandom?.addEventListener("change", () => {
+  if (manualRow) manualRow.style.display = "none";
+  if (manualCounterRow) manualCounterRow.style.display = "none";
+  // If a session is running, immediately (re)enable background thunder
+  if (sessionRunning && !paused) startBgThunder();
+});
+
+modeManual?.addEventListener("change", () => {
+  if (manualRow) manualRow.style.display = "";
+  if (manualCounterRow) manualCounterRow.style.display = "";
+  // If a session is running, immediately stop background thunder
+  if (sessionRunning) stopBgThunder();
+});
+
 
   document.getElementById("btnDistant")?.addEventListener("click", () => playThunder("roll"));
   document.getElementById("btnClose")?.addEventListener("click", () => playThunder("close"));
@@ -541,4 +555,10 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
       }, { once: true });
     }
   });
+  // expose helpers so you can trigger it from links/buttons
+window.__cdtOnboard = {
+  show:  () => openModal(),
+  reset: () => { try { localStorage.removeItem(KEY); } catch{} updateCallout(); openModal(); }
+};
+
 })();
