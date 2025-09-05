@@ -86,3 +86,5 @@ button{cursor:pointer; border-radius:10px; border:1px solid var(--border); paddi
 .cdt-primary,.cdt-ghost{padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; border:1px solid #2a3545}
 .cdt-primary{background:#1b2a3c; color:#eaf0f7}
 .cdt-ghost{background:#0c121b; color:#cfe3fb}
+.cdt-note{ margin-top:8px; color:#cfe3fb; }
+.cdt-note a{ color:#a7c5ff; text-decoration:underline; }
