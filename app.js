@@ -6,6 +6,7 @@ function chooseExt() {
 const EXT = chooseExt();
 const enc  = (s, ext = EXT) => `sounds/${encodeURIComponent(s)}.${ext}`;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
 // ===================== global state (mostly unchanged) =====================
 let ctx, masterGain, rainGain, bgGain, thunderGain;
@@ -41,8 +42,8 @@ async function fetchJSON(url) {
 async function fetchBuffer(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load audio ${url}`);
-  const arr = await res.arrayBuffer();
-  return await ctx.decodeAudioData(arr);
+  const arr = await ctx.decodeAudioData(await res.arrayBuffer());
+  return arr;
 }
 async function fetchBufferWithFallback(base) {
   try {
@@ -121,10 +122,12 @@ function applyLowFreqSoft(enabled) {
 }
 
 // ===================== helpers for thunder shelves =====================
-// Map reduction percent → dB cut. 0% = 0 dB, 75% ≈ -24 dB.
+// Convert a user-facing reduction percent (0..100) to a shelf dB cut.
+// We treat "reduction %" as amplitude reduction, so 50% → keep=0.5 → ~-6.02 dB.
 function reductionToDb(percent) {
-  const p = Math.max(0, Math.min(100, percent));
-  return -24 * (p / 100);
+  const p = clamp(percent, 0, 100);
+  const keep = Math.max(0.0001, 1 - p / 100); // keep fraction of amplitude
+  return 20 * Math.log10(keep);
 }
 
 // Update any matching label ids with "<n>%"
@@ -141,8 +144,12 @@ function applyThunderEQFromSliders() {
   const highEl = document.getElementById("highSlider");
   if (!ctx || !thunderLowShelf || !thunderHighShelf) return;
 
-  const lowPct  = lowEl  ? parseInt(lowEl.value, 10)  : 0;  // 0,25,50,75
-  const highPct = highEl ? parseInt(highEl.value, 10) : 0;
+  // Support both step-index sliders (0..3) and direct % sliders.
+  const STEP_MAP = [75, 50, 25, 0]; // reduction percents
+
+  let lowPct = 0, highPct = 0;
+  if (lowEl)  lowPct  = (parseInt(lowEl.max,10) === 3)  ? STEP_MAP[clamp(parseInt(lowEl.value,10),0,3)]  : clamp(parseInt(lowEl.value,10)||0, 0, 100);
+  if (highEl) highPct = (parseInt(highEl.max,10) === 3) ? STEP_MAP[clamp(parseInt(highEl.value,10),0,3)] : clamp(parseInt(highEl.value,10)||0, 0, 100);
 
   thunderLowShelf.gain.value  = reductionToDb(lowPct);
   thunderHighShelf.gain.value = reductionToDb(highPct);
@@ -158,25 +165,25 @@ async function startRain(level) {
 
   const list = manifest.rain?.[level] || manifest.rain?.["2"] || [];
 
-// Filter out files that *look* like they contain thunder.
-// (Adjust the pattern to match your filenames.)
-const PURE_RAIN_ONLY = true;
-const disallowPattern = /thunder|lightning|boom|strike|rumble|close|distant/i;
+  // Filter out files that *look* like they contain thunder.
+  // (Adjust the pattern to match your filenames.)
+  const PURE_RAIN_ONLY = true;
+  const disallowPattern = /thunder|lightning|boom|strike|rumble|close|distant/i;
 
-let candidates = list.slice();
-if (PURE_RAIN_ONLY) {
-  const filtered = candidates.filter(name => !disallowPattern.test(name));
-  if (filtered.length) candidates = filtered; // only use filtered if we found any
-}
+  let candidates = list.slice();
+  if (PURE_RAIN_ONLY) {
+    const filtered = candidates.filter(name => !disallowPattern.test(name));
+    if (filtered.length) candidates = filtered; // only use filtered if we found any
+  }
 
-const base = pick(candidates);
+  const base = pick(candidates);
   let buf;
   try {
     buf = await fetchBufferWithFallback(base);
   } catch (e) {
     console.warn("[rain] failed to load", base, e);
-    const candidates = list.filter(b => b !== base);
-    for (const alt of candidates) {
+    const alts = list.filter(b => b !== base);
+    for (const alt of alts) {
       try { buf = await fetchBufferWithFallback(alt); break; } catch {}
     }
     if (!buf) { console.warn("[rain] nothing playable for level", level); return; }
@@ -368,26 +375,25 @@ window.addEventListener("DOMContentLoaded", async () => {
   const intensityOut = document.getElementById("intensityOut");
   if (intensityEl && intensityOut) intensityOut.textContent = `${parseInt(intensityEl.value,10)} / 5`;
 
-const modeRandom = document.getElementById("modeRandom");
-const modeManual = document.getElementById("modeManual");
-const manualRow = document.getElementById("manualRow");
-const manualCounterRow = document.getElementById("manualCounterRow");
+  const modeRandom = document.getElementById("modeRandom");
+  const modeManual = document.getElementById("modeManual");
+  const manualRow = document.getElementById("manualRow");
+  const manualCounterRow = document.getElementById("manualCounterRow");
 
-// REPLACE your current handlers with this:
-modeRandom?.addEventListener("change", () => {
-  if (manualRow) manualRow.style.display = "none";
-  if (manualCounterRow) manualCounterRow.style.display = "none";
-  // If a session is running, immediately (re)enable background thunder
-  if (sessionRunning && !paused) startBgThunder();
-});
+  // REPLACE your current handlers with this:
+  modeRandom?.addEventListener("change", () => {
+    if (manualRow) manualRow.style.display = "none";
+    if (manualCounterRow) manualCounterRow.style.display = "none";
+    // If a session is running, immediately (re)enable background thunder
+    if (sessionRunning && !paused) startBgThunder();
+  });
 
-modeManual?.addEventListener("change", () => {
-  if (manualRow) manualRow.style.display = "";
-  if (manualCounterRow) manualCounterRow.style.display = "";
-  // If a session is running, immediately stop background thunder
-  if (sessionRunning) stopBgThunder();
-});
-
+  modeManual?.addEventListener("change", () => {
+    if (manualRow) manualRow.style.display = "";
+    if (manualCounterRow) manualCounterRow.style.display = "";
+    // If a session is running, immediately stop background thunder
+    if (sessionRunning) stopBgThunder();
+  });
 
   document.getElementById("btnDistant")?.addEventListener("click", () => playThunder("roll"));
   document.getElementById("btnClose")?.addEventListener("click", () => playThunder("close"));
@@ -412,6 +418,11 @@ modeManual?.addEventListener("change", () => {
 
   const lowEl  = document.getElementById("lowSlider");
   const highEl = document.getElementById("highSlider");
+
+  // ===== Default both to 50% reduction on load =====
+  if (lowEl)  lowEl.value  = (parseInt(lowEl.max,10) === 3)  ? "1"  : "50"; // step-index: 1 → 50%
+  if (highEl) highEl.value = (parseInt(highEl.max,10) === 3) ? "1" : "50";
+
   function updateThunderShelvesFromUI() { applyThunderEQFromSliders(); }
   lowEl?.addEventListener("input", updateThunderShelvesFromUI);
   highEl?.addEventListener("input", updateThunderShelvesFromUI);
@@ -556,9 +567,9 @@ window.addEventListener('unhandledrejection', e => console.error('Unhandled prom
     }
   });
   // expose helpers so you can trigger it from links/buttons
-window.__cdtOnboard = {
-  show:  () => openModal(),
-  reset: () => { try { localStorage.removeItem(KEY); } catch{} updateCallout(); openModal(); }
-};
+  window.__cdtOnboard = {
+    show:  () => openModal(),
+    reset: () => { try { localStorage.removeItem(KEY); } catch{} updateCallout(); openModal(); }
+  };
 
 })();
